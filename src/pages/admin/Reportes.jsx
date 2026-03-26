@@ -23,8 +23,28 @@ export default function Reportes() {
     setLoading(true)
     try {
       if (isDemo) {
+        const now = new Date()
+        let start, end
+
+        if (activeTab === 'diario') {
+          start = startOfDay(now)
+          end = endOfDay(now)
+        } else if (activeTab === 'semanal') {
+          start = startOfWeek(now)
+          end = endOfWeek(now)
+        } else {
+          start = startOfMonth(now)
+          end = endOfMonth(now)
+        }
+
+        // Filtrar demoPayments por período
+        const filtered = demoPayments.filter((p) => {
+          const paymentDate = new Date(p.fecha_pago)
+          return paymentDate >= start && paymentDate <= end
+        })
+
         setClients(demoClients)
-        setPayments(demoPayments)
+        setPayments(filtered)
         setLoading(false)
         return
       }
