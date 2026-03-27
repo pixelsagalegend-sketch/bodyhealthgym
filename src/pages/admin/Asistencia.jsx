@@ -26,9 +26,8 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Legend,
 } from 'recharts'
-import { format, subDays, startOfMonth, endOfMonth, eachDayOfInterval, getDay, startOfWeek } from 'date-fns'
+import { format, subDays, startOfMonth, endOfMonth, eachDayOfInterval, getDay, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import {
   demoClients,
@@ -39,9 +38,7 @@ import {
   getDemoAttendanceByDay,
   getDemoAttendanceByHour,
   getDemoInactiveClients,
-  getDemoAttendanceDailyTrend,
-  getDemoWeekComparison,
-  getDemoHourlyTrendMonth,
+  getDemoAttendanceCurrentMonthTrend,
 } from '../../lib/demoData'
 
 const today = new Date()
@@ -60,17 +57,26 @@ export default function Asistencia() {
   const [dailyTrend, setDailyTrend] = useState([])
   const [hourlyData, setHourlyData] = useState([])
   const [inactiveClients, setInactiveClients] = useState({ warning: [], danger: [] })
-  const [weekComparison, setWeekComparison] = useState([])
   const [searchQuery, setSearchQuery] = useState('')
   const [loading, setLoading] = useState(true)
   const [marking, setMarking] = useState(null)
   const [time, setTime] = useState(new Date())
 
-  // Timer para actualizar tiempo en tiempo real
+  // Timer para actualizar tiempo en tiempo real y detectar cambio de día
   useEffect(() => {
-    const interval = setInterval(() => setTime(new Date()), 1000)
+    let lastDate = format(new Date(), 'yyyy-MM-dd')
+    const interval = setInterval(() => {
+      const now = new Date()
+      setTime(now)
+      // Si cambió el día, recargar datos para reset automático
+      const currentDate = format(now, 'yyyy-MM-dd')
+      if (currentDate !== lastDate) {
+        lastDate = currentDate
+        fetchAllData()
+      }
+    }, 1000)
     return () => clearInterval(interval)
-  }, [])
+  }, [isDemo])
 
   useEffect(() => {
     fetchAllData()
@@ -135,35 +141,32 @@ export default function Asistencia() {
   }
 
   const recalculateMetrics = (activeClients, todayData) => {
-    // Tendencia diaria últimos 30 días
-    const trend = isDemo ? getDemoAttendanceDailyTrend(30) : calculateDailyTrend(30)
+    // Tendencia del mes actual (día 1 hasta hoy)
+    const trend = isDemo ? getDemoAttendanceCurrentMonthTrend() : calculateCurrentMonthTrend()
     setDailyTrend(trend)
 
-    // Datos por hora
+    // Datos por hora del día de hoy
     const hourly = isDemo ? getDemoAttendanceByHour(format(today, 'yyyy-MM-dd')) : calculateHourlyData()
     setHourlyData(hourly)
-
-    // Comparación semana actual vs anterior
-    const weekComp = isDemo ? getDemoWeekComparison() : calculateWeekComparison()
-    setWeekComparison(weekComp)
 
     // Clientes inactivos
     const inactive = isDemo ? getDemoInactiveClients(7) : calculateInactiveClients()
     setInactiveClients(inactive)
   }
 
-  const calculateDailyTrend = (days) => {
-    // Para modo producción (cuando tengamos conexión a Supabase)
+  const calculateCurrentMonthTrend = () => {
+    // Tendencia del mes actual para modo producción (Supabase)
+    const now = new Date()
+    const year = now.getFullYear()
+    const month = now.getMonth()
+    const dayOfMonth = now.getDate()
     const trend = []
-    for (let i = days - 1; i >= 0; i--) {
-      const date = subDays(today, i)
-      const dayLabel = format(date, 'EEE d')
-      const count = Object.keys(monthAttendance).reduce((sum, dateKey) => {
-        if (dateKey === format(date, 'yyyy-MM-dd')) {
-          return sum + monthAttendance[dateKey].length
-        }
-        return sum
-      }, 0)
+
+    for (let d = 1; d <= dayOfMonth; d++) {
+      const date = new Date(year, month, d)
+      const dateStr = format(date, 'yyyy-MM-dd')
+      const dayLabel = format(date, 'd MMM')
+      const count = (monthAttendance[dateStr] || []).length
       trend.push({ dia: dayLabel, count })
     }
     return trend
@@ -179,26 +182,6 @@ export default function Asistencia() {
       const h = String(i).padStart(2, '0')
       return { hora: `${h}:00`, count: hours[h] || 0 }
     })
-  }
-
-  const calculateWeekComparison = () => {
-    const days = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sab', 'Dom']
-    const comparison = []
-    for (let i = 0; i < 7; i++) {
-      const currentDate = subDays(today, (today.getDay() - 1 - i + 7) % 7)
-      const currentStr = format(currentDate, 'yyyy-MM-dd')
-      const currentCount = Object.keys(monthAttendance).reduce((sum, dateKey) => {
-        if (dateKey === currentStr) return sum + monthAttendance[dateKey].length
-        return sum
-      }, 0)
-
-      const prevDate = subDays(currentDate, 7)
-      const prevStr = format(prevDate, 'yyyy-MM-dd')
-      const prevCount = 0 // Para demo, no hay historial anterior
-
-      comparison.push({ dia: days[i], actual: currentCount, anterior: prevCount })
-    }
-    return comparison
   }
 
   const calculateInactiveClients = () => {
@@ -369,8 +352,13 @@ export default function Asistencia() {
       {/* SECCIÓN 1: REGISTRO ENTRADA/SALIDA */}
       <div className="bg-gym-dark border border-white/5 rounded-2xl p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-white font-bold text-lg">📱 Registro de Entradas/Salidas</h3>
-          <div className="text-sm text-gym-gray">{format(time, 'HH:mm:ss')}</div>
+          <div>
+            <h3 className="text-white font-bold text-lg">📱 Registro de Entradas/Salidas</h3>
+            <p className="text-gym-gray text-xs mt-0.5 capitalize">
+              {format(today, "EEEE, d 'de' MMMM yyyy", { locale: es })}
+            </p>
+          </div>
+          <div className="text-sm text-gym-gray font-mono">{format(time, 'HH:mm:ss')}</div>
         </div>
 
         <div className="mb-4 relative">
@@ -464,7 +452,10 @@ export default function Asistencia() {
         <div className="lg:col-span-2 bg-gym-dark border border-white/5 rounded-2xl p-6">
           <h3 className="text-white font-bold text-lg mb-4 flex items-center gap-2">
             <Calendar className="w-5 h-5 text-gym-red" />
-            Historial Mensual
+            Historial Mensual —{' '}
+            <span className="text-gym-red capitalize">
+              {format(today, 'MMMM yyyy', { locale: es })}
+            </span>
           </h3>
 
           <div className="mb-4">
@@ -539,7 +530,7 @@ export default function Asistencia() {
           {/* Panel lateral: clientes del día seleccionado */}
           {selectedDay && selectedDayClients.length > 0 && (
             <div className="mt-6 p-4 bg-gym-black border border-white/10 rounded-lg">
-              <div className="text-white font-semibold text-sm mb-3">Asistencia el {format(new Date(selectedDay), 'dd MMM yyyy', { locale: es })}</div>
+              <div className="text-white font-semibold text-sm mb-3">Asistencia el {format(parseISO(selectedDay), 'dd MMM yyyy', { locale: es })}</div>
               <div className="space-y-2 max-h-48 overflow-y-auto">
                 {selectedDayClients.map((entry) => (
                   <div key={entry.id} className="flex items-center justify-between text-sm">
@@ -716,59 +707,23 @@ export default function Asistencia() {
           Gráficas de Tendencias
         </h3>
 
-        {/* Tendencia diaria 30 días */}
+        {/* Tendencia del mes actual */}
         <div className="bg-gym-dark border border-white/5 rounded-2xl p-6">
-          <h4 className="text-white font-bold mb-4">Asistencia Diaria (Últimos 30 días)</h4>
+          <h4 className="text-white font-bold mb-4">
+            Asistencia del Mes — {format(today, 'MMMM yyyy', { locale: es }).replace(/^\w/, c => c.toUpperCase())}
+          </h4>
           {dailyTrend.some((d) => d.count > 0) ? (
             <ResponsiveContainer width="100%" height={250}>
               <LineChart data={dailyTrend}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
-                <XAxis dataKey="dia" tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false} interval={Math.floor(dailyTrend.length / 7)} />
+                <XAxis dataKey="dia" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} interval={Math.max(0, Math.floor(dailyTrend.length / 10) - 1)} />
                 <YAxis tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false} />
                 <Tooltip contentStyle={{ backgroundColor: '#1a1a1a', border: '1px solid #dc2626', borderRadius: '8px', color: '#fff' }} formatter={(value) => [value, 'Asistencias']} />
-                <Line type="monotone" dataKey="count" stroke="#dc2626" strokeWidth={2} dot={{ fill: '#dc2626' }} />
+                <Line type="monotone" dataKey="count" stroke="#dc2626" strokeWidth={2} dot={{ fill: '#dc2626', r: 3 }} />
               </LineChart>
             </ResponsiveContainer>
           ) : (
-            <EmptyChart label="Sin datos de asistencia en este período" />
-          )}
-        </div>
-
-        {/* Semana actual vs anterior */}
-        <div className="bg-gym-dark border border-white/5 rounded-2xl p-6">
-          <h4 className="text-white font-bold mb-4">Comparativa Semanal</h4>
-          {weekComparison.some((w) => w.actual > 0 || w.anterior > 0) ? (
-            <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={weekComparison}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
-                <XAxis dataKey="dia" tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={{ backgroundColor: '#1a1a1a', border: '1px solid #dc2626', borderRadius: '8px', color: '#fff' }} />
-                <Legend wrapperStyle={{ color: '#6b7280' }} />
-                <Bar dataKey="actual" fill="#dc2626" name="Esta semana" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="anterior" fill="#dc262660" name="Semana pasada" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          ) : (
-            <EmptyChart label="Sin datos de comparativa" />
-          )}
-        </div>
-
-        {/* Hora pico */}
-        <div className="bg-gym-dark border border-white/5 rounded-2xl p-6">
-          <h4 className="text-white font-bold mb-4">Hora Pico del Día</h4>
-          {hourlyData.some((h) => h.count > 0) ? (
-            <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={hourlyData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
-                <XAxis dataKey="hora" tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false} interval={2} />
-                <YAxis tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={{ backgroundColor: '#1a1a1a', border: '1px solid #dc2626', borderRadius: '8px', color: '#fff' }} formatter={(value) => [value, 'Asistencias']} />
-                <Bar dataKey="count" fill="#dc2626" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          ) : (
-            <EmptyChart label="Sin datos de horario" />
+            <EmptyChart label="Sin datos de asistencia este mes" />
           )}
         </div>
       </div>

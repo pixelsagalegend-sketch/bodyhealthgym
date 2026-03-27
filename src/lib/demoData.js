@@ -95,8 +95,8 @@ export const demoAttendance = (() => {
   const hours = ['06:15', '06:45', '07:00', '07:30', '08:00', '17:30', '18:00', '18:30', '19:00', '19:30', '20:00', '20:45']
   const clientIds = ['c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8']
 
-  // Generar 30 días hacia atrás
-  for (let i = 29; i >= 0; i--) {
+  // Generar 30 días hacia atrás (excluye hoy para que el registro empiece limpio)
+  for (let i = 29; i >= 1; i--) {
     const date = subDays(today, i)
     const dateStr = format(date, 'yyyy-MM-dd')
     const dayOfWeek = date.getDay()
@@ -344,6 +344,25 @@ export function getDemoAttendanceDailyTrend(days) {
     const count = demoAttendance.filter(a => a.fecha === dateStr).length
     trend.push({ dia: dayLabel, count })
   }
+  return trend
+}
+
+// Attendance trend for current month (day 1 to today)
+export function getDemoAttendanceCurrentMonthTrend() {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = now.getMonth()
+  const dayOfMonth = now.getDate()
+  const trend = []
+
+  for (let d = 1; d <= dayOfMonth; d++) {
+    const date = new Date(year, month, d)
+    const dateStr = format(date, 'yyyy-MM-dd')
+    const dayLabel = format(date, 'd MMM')
+    const count = demoAttendance.filter(a => a.fecha === dateStr).length
+    trend.push({ dia: dayLabel, count })
+  }
+
   return trend
 }
 
