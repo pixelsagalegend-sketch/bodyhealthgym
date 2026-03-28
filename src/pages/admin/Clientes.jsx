@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { useForm, Controller } from 'react-hook-form'
 import toast from 'react-hot-toast'
-import { Plus, Search, UserCheck, UserX, X, CreditCard, ClipboardList, MessageCircle, ChevronDown } from 'lucide-react'
+import { Plus, Search, UserCheck, UserX, X, CreditCard, ClipboardList, MessageCircle, ChevronDown, Calendar } from 'lucide-react'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 
@@ -51,7 +51,7 @@ function PhoneInputWithCode({ field }) {
       </button>
 
       {isOpen && (
-        <div className="absolute top-full left-0 mt-1 bg-gym-dark border border-white/10 rounded-lg shadow-lg z-10 w-48">
+        <div className="absolute top-full left-0 mt-1 bg-gym-dark border border-white/10 rounded-lg shadow-lg z-10 w-48 max-h-64 overflow-y-auto">
           {COUNTRY_CODES.map((cc) => (
             <button
               key={cc.code}
@@ -93,6 +93,8 @@ export default function Clientes() {
   const [saving, setSaving] = useState(false)
   const [activeTab, setActiveTab] = useState('pagos')
   const [highlightId, setHighlightId] = useState(null)
+  const [partialPaymentAmount, setPartialPaymentAmount] = useState('')
+  const [loadingPartialPayment, setLoadingPartialPayment] = useState(false)
 
   const { register, handleSubmit, reset, control, formState: { errors } } = useForm({
     defaultValues: {
@@ -140,6 +142,7 @@ export default function Clientes() {
         ? formData.fechaInscripcion
         : new Date().toISOString().split('T')[0]
       const tipoPago = formData.tipoPago || 'inscripcion_mensual'
+      const descuento = Number(formData.descuento) || 0
 
       // 1. Create client
       const { data: client, error: clientError } = await supabase
@@ -180,6 +183,12 @@ export default function Clientes() {
         notasTotal = ['Inscripción $5']
       }
 
+      // Apply discount to total
+      const montoFinal = Math.max(0, montoTotal - descuento)
+      if (descuento > 0) {
+        notasTotal.push(`Descuento -$${descuento.toFixed(2)}`)
+      }
+
       // Insert all payments
       if (pagosACrear.length > 0) {
         const pagosParaInsert = pagosACrear.map((pago) => ({
@@ -209,8 +218,8 @@ export default function Clientes() {
         })
       }
 
-      const mensajeExito = montoTotal > 0
-        ? `✅ Cliente registrado — $${montoTotal} cobrado`
+      const mensajeExito = montoFinal > 0
+        ? `✅ Cliente registrado — $${montoFinal.toFixed(2)} cobrado`
         : '✅ Cliente registrado sin pago inicial'
 
       toast.success(mensajeExito)
@@ -252,6 +261,36 @@ export default function Clientes() {
     setAsistencias(a.data || [])
   }
 
+  const addPartialPayment = async () => {
+    if (!partialPaymentAmount || Number(partialPaymentAmount) <= 0) {
+      toast.error('Ingresa un monto válido')
+      return
+    }
+
+    if (!showPagos) return
+
+    setLoadingPartialPayment(true)
+    try {
+      const { error } = await supabase.from('payments').insert({
+        client_id: showPagos.id,
+        tipo: 'pago_parcial',
+        monto: Number(partialPaymentAmount),
+        fecha_pago: new Date().toISOString().split('T')[0],
+        mes_correspondiente: new Date().toISOString().substring(0, 7),
+        notas: `Pago parcial - $${Number(partialPaymentAmount).toFixed(2)}`
+      })
+
+      if (error) throw error
+
+      toast.success(`Pago parcial de $${Number(partialPaymentAmount).toFixed(2)} registrado`)
+      setPartialPaymentAmount('')
+      verPagos(showPagos)
+    } catch (err) {
+      toast.error(err.message || 'Error al registrar pago parcial')
+    }
+    setLoadingPartialPayment(false)
+  }
+
   const getMembershipStatus = (clientId) => {
     return {
       label: 'Verificar',
@@ -264,7 +303,8 @@ export default function Clientes() {
       alert('Este cliente no tiene teléfono registrado')
       return
     }
-    const clean = phone.replace(/[\s+\-()]/g, '')
+    // Remove spaces, dashes, parentheses but keep the + sign and numbers
+    const clean = phone.replace(/[\s\-()]/g, '').replace(/[^\d+]/g, '')
     window.open(`https://wa.me/${clean}?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer')
   }
 
@@ -481,19 +521,35 @@ export default function Clientes() {
                   name="fechaInscripcion"
                   control={control}
                   render={({ field }) => (
-                    <input
-                      {...field}
-                      type="date"
-                      className="w-full bg-gym-black border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gym-red"
-                    />
+                    <div className="relative">
+                      <input
+                        {...field}
+                        type="date"
+                        className="w-full bg-gym-black border border-white/10 rounded-lg px-3 py-2.5 pl-10 text-white text-sm focus:outline-none focus:border-gym-red"
+                      />
+                      <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gym-gray pointer-events-none" />
+                    </div>
                   )}
+                />
+              </div>
+
+              {/* Discount */}
+              <div>
+                <label className="block text-gym-gray text-xs mb-1">Descuento ($)</label>
+                <input
+                  {...register('descuento')}
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  className="w-full bg-gym-black border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gym-red"
+                  placeholder="0.00"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={saving}
-                className="w-full bg-gym-red hover:bg-gym-red-hover disabled:opacity-50 text-white font-bold py-3 rounded-xl transition-colors mt-2"
+                className="w-full bg-gym-red hover:bg-gym-red-hover disabled:opacity-50 text-white font-bold py-3 rounded-xl transition-colors mt-4"
               >
                 {saving ? 'Registrando...' : 'Registrar cliente'}
               </button>
@@ -576,6 +632,29 @@ export default function Clientes() {
                     ))}
                   </div>
                 )}
+
+                {/* Partial Payment Section */}
+                <div className="mt-6 pt-6 border-t border-white/5 space-y-3">
+                  <h4 className="text-white font-bold text-sm">Registrar Pago Parcial</h4>
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={partialPaymentAmount}
+                      onChange={(e) => setPartialPaymentAmount(e.target.value)}
+                      placeholder="Monto ($)"
+                      className="flex-1 bg-gym-black border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-gym-red"
+                    />
+                    <button
+                      onClick={addPartialPayment}
+                      disabled={loadingPartialPayment}
+                      className="bg-gym-red hover:bg-gym-red-hover disabled:opacity-50 text-white font-bold px-4 py-2 rounded-lg transition-colors text-sm"
+                    >
+                      {loadingPartialPayment ? 'Guardando...' : 'Registrar'}
+                    </button>
+                  </div>
+                </div>
               </>
             )}
 
