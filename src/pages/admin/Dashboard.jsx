@@ -27,7 +27,7 @@ export default function Dashboard() {
       const [clientsRes, paymentsRes, membershipsRes, attendanceRes] = await Promise.all([
         supabase.from('clients').select('id, nombre, apellido, telefono, estado, email'),
         supabase.from('payments').select('monto, fecha_pago').gte('fecha_pago', thisMonthStart).lte('fecha_pago', thisMonthEnd),
-        supabase.from('memberships').select('*, clients(id, nombre, apellido, telefono, email)').eq('estado', 'activa'),
+        supabase.from('memberships').select('id, client_id, fecha_vencimiento').gte('fecha_vencimiento', format(now, 'yyyy-MM-dd')).order('fecha_vencimiento', { ascending: true }),
         supabase.from('attendance').select('id').eq('fecha', format(now, 'yyyy-MM-dd')),
       ])
 
@@ -37,6 +37,8 @@ export default function Dashboard() {
       const sevenDaysLater = new Date()
       sevenDaysLater.setDate(sevenDaysLater.getDate() + 7)
       const membershipsData = membershipsRes.data || []
+      const clientsMap = new Map((clientsRes.data || []).map(c => [c.id, c]))
+
       const porVencer = membershipsData.filter((m) => {
         const venc = new Date(m.fecha_vencimiento)
         return venc <= sevenDaysLater && venc >= now
@@ -48,10 +50,17 @@ export default function Dashboard() {
           const venc = new Date(m.fecha_vencimiento)
           return venc <= sevenDaysLater && venc >= now
         })
-        .map((m) => ({
-          ...m.clients,
-          fecha_vencimiento: m.fecha_vencimiento,
-        }))
+        .map((m) => {
+          const client = clientsMap.get(m.client_id)
+          return {
+            id: client?.id || m.client_id,
+            nombre: client?.nombre || 'Desconocido',
+            apellido: client?.apellido || '',
+            email: client?.email || '',
+            telefono: client?.telefono || '',
+            fecha_vencimiento: m.fecha_vencimiento,
+          }
+        })
 
       setMetrics({ activos, ingresos, pendientes: porVencer, porVencer })
       setAsistenciasHoy((attendanceRes.data || []).length)
