@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
-import { useForm } from 'react-hook-form'
+import { useForm, Controller } from 'react-hook-form'
+import ReactPhoneInput from 'react-phone-input-2'
+import 'react-phone-input-2/lib/style.css'
 import toast from 'react-hot-toast'
 import { Plus, Search, UserCheck, UserX, X, CreditCard, ClipboardList, MessageCircle } from 'lucide-react'
 import { format } from 'date-fns'
@@ -24,7 +26,11 @@ export default function Clientes() {
   const [activeTab, setActiveTab] = useState('pagos')
   const [highlightId, setHighlightId] = useState(null)
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm()
+  const { register, handleSubmit, reset, control, formState: { errors } } = useForm({
+    defaultValues: {
+      fechaInscripcion: new Date().toISOString().split('T')[0]
+    }
+  })
 
   useEffect(() => { fetchClients() }, [user])
 
@@ -61,7 +67,10 @@ export default function Clientes() {
   const onSubmit = async (formData) => {
     setSaving(true)
     try {
-      const fechaInscripcion = formData.fechaInscripcion || new Date().toISOString().split('T')[0]
+      // Ensure date is properly captured; use today's date if not provided
+      const fechaInscripcion = formData.fechaInscripcion && formData.fechaInscripcion.trim()
+        ? formData.fechaInscripcion
+        : new Date().toISOString().split('T')[0]
       const tipoPago = formData.tipoPago || 'inscripcion_mensual'
 
       // 1. Create client
@@ -375,10 +384,43 @@ export default function Clientes() {
               </div>
               <div>
                 <label className="block text-gym-gray text-xs mb-1">Teléfono (opcional)</label>
-                <input
-                  {...register('telefono')}
-                  className="w-full bg-gym-black border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gym-red"
-                  placeholder="+1 555 123 4567"
+                <Controller
+                  name="telefono"
+                  control={control}
+                  render={({ field }) => (
+                    <ReactPhoneInput
+                      {...field}
+                      country={'ec'}
+                      preferredCountries={['ec']}
+                      enableAreaCodeStripping={false}
+                      inputStyle={{
+                        width: '100%',
+                        backgroundColor: '#0a0a0a',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        borderRadius: '0.5rem',
+                        padding: '0.625rem 0.75rem',
+                        color: '#ffffff',
+                        fontSize: '0.875rem',
+                        fontFamily: 'inherit'
+                      }}
+                      buttonStyle={{
+                        backgroundColor: '#0a0a0a',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        borderRight: '1px solid rgba(255, 255, 255, 0.1)',
+                        borderRadius: '0.5rem 0 0 0.5rem'
+                      }}
+                      dropdownStyle={{
+                        backgroundColor: '#0a0a0a',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        color: '#ffffff'
+                      }}
+                      searchStyle={{
+                        backgroundColor: '#0a0a0a',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        color: '#ffffff'
+                      }}
+                    />
+                  )}
                 />
               </div>
 
@@ -400,11 +442,16 @@ export default function Clientes() {
               {/* Registration Date */}
               <div>
                 <label className="block text-gym-gray text-xs mb-1">Fecha de inscripción</label>
-                <input
-                  {...register('fechaInscripcion')}
-                  type="date"
-                  className="w-full bg-gym-black border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gym-red"
-                  defaultValue={new Date().toISOString().split('T')[0]}
+                <Controller
+                  name="fechaInscripcion"
+                  control={control}
+                  render={({ field }) => (
+                    <input
+                      {...field}
+                      type="date"
+                      className="w-full bg-gym-black border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gym-red"
+                    />
+                  )}
                 />
               </div>
 
