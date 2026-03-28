@@ -61,37 +61,82 @@ export default function Clientes() {
   const onSubmit = async (formData) => {
     setSaving(true)
     try {
-      // Create client
+      const fechaInscripcion = formData.fechaInscripcion || new Date().toISOString().split('T')[0]
+      const tipoPago = formData.tipoPago || 'inscripcion_mensual'
+
+      // 1. Create client
       const { data: client, error: clientError } = await supabase
         .from('clients')
-        .insert({ ...formData, fecha_inscripcion: new Date().toISOString().split('T')[0], estado: 'activo' })
+        .insert({
+          nombre: formData.nombre,
+          apellido: formData.apellido,
+          email: formData.email,
+          telefono: formData.telefono,
+          fecha_inscripcion: fechaInscripcion,
+          estado: 'activo'
+        })
         .select()
         .single()
       if (clientError) throw clientError
 
-      // 2. Create payment $30 (inscripcion + primer mes)
-      const today = new Date().toISOString().split('T')[0]
-      await supabase.from('payments').insert({
-        client_id: client.id,
-        tipo: 'inscripcion',
-        monto: 30,
-        fecha_pago: today,
-        mes_correspondiente: today.substring(0, 7),
-        notas: 'Inscripción + primer mes ($5 + $25)',
-      })
+      // 2. Create payment(s) based on type
+      const pagosACrear = []
+      let montoTotal = 0
+      let notasTotal = []
 
-      // 3. Create membership
-      const vencimiento = new Date()
-      vencimiento.setMonth(vencimiento.getMonth() + 1)
-      await supabase.from('memberships').insert({
-        client_id: client.id,
-        tipo: 'mensual',
-        fecha_inicio: today,
-        fecha_vencimiento: vencimiento.toISOString().split('T')[0],
-        estado: 'activa',
-      })
+      if (tipoPago === 'inscripcion_mensual') {
+        pagosACrear.push({ tipo: 'inscripcion', monto: 5 })
+        pagosACrear.push({ tipo: 'mensual', monto: 25 })
+        montoTotal = 30
+        notasTotal = ['Inscripción $5', 'Primer mes $25']
+      } else if (tipoPago === 'solo_mensual') {
+        pagosACrear.push({ tipo: 'mensual', monto: 25 })
+        montoTotal = 25
+        notasTotal = ['Primer mes $25']
+      } else if (tipoPago === 'solo_diario') {
+        pagosACrear.push({ tipo: 'diario', monto: 3 })
+        montoTotal = 3
+        notasTotal = ['Pago diario $3']
+      } else if (tipoPago === 'solo_inscripcion') {
+        pagosACrear.push({ tipo: 'inscripcion', monto: 5 })
+        montoTotal = 5
+        notasTotal = ['Inscripción $5']
+      }
 
-      toast.success('✅ Cliente registrado — $30 cobrado automáticamente')
+      // Insert all payments
+      if (pagosACrear.length > 0) {
+        const pagosParaInsert = pagosACrear.map((pago) => ({
+          client_id: client.id,
+          tipo: pago.tipo,
+          monto: pago.monto,
+          fecha_pago: fechaInscripcion,
+          mes_correspondiente: fechaInscripcion.substring(0, 7),
+          notas: notasTotal.join(' + '),
+        }))
+
+        const { error: pagoError } = await supabase.from('payments').insert(pagosParaInsert)
+        if (pagoError) throw pagoError
+      }
+
+      // 3. Create membership if includes 'mensual'
+      if (tipoPago === 'inscripcion_mensual' || tipoPago === 'solo_mensual') {
+        const vencimiento = new Date(fechaInscripcion)
+        vencimiento.setMonth(vencimiento.getMonth() + 1)
+
+        await supabase.from('memberships').insert({
+          client_id: client.id,
+          tipo: 'mensual',
+          fecha_inicio: fechaInscripcion,
+          fecha_vencimiento: vencimiento.toISOString().split('T')[0],
+          estado: 'activa',
+        })
+      }
+
+      const mensajeExito = montoTotal > 0
+        ? `✅ Cliente registrado — $${montoTotal} cobrado`
+        : '✅ Cliente registrado sin pago inicial'
+
+      toast.success(mensajeExito)
       reset()
       setShowModal(false)
       fetchClients()
@@ -239,15 +284,12 @@ export default function Clientes() {
       {/* Modal: New Client */}
       {showModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-gym-dark border border-white/10 rounded-2xl p-8 w-full max-w-lg shadow-2xl">
+          <div className="bg-gym-dark border border-white/10 rounded-2xl p-8 w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-white font-bold text-lg">Nuevo Cliente</h3>
               <button onClick={() => { setShowModal(false); reset() }} className="text-gym-gray hover:text-white">
                 <X className="w-5 h-5" />
               </button>
-            </div>
-            <div className="bg-gym-red/10 border border-gym-red/20 rounded-xl p-3 mb-6 text-sm text-gym-red">
-              Se cobrará automáticamente $30 (inscripción $5 + primer mes $25)
             </div>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
@@ -285,12 +327,39 @@ export default function Clientes() {
                   placeholder="+1 555 123 4567"
                 />
               </div>
+
+              {/* Payment Type Selection */}
+              <div>
+                <label className="block text-gym-gray text-xs mb-1">Tipo de pago inicial</label>
+                <select
+                  {...register('tipoPago', { required: true })}
+                  className="w-full bg-gym-black border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gym-red"
+                >
+                  <option value="inscripcion_mensual">Inscripción + Mensual ($30)</option>
+                  <option value="solo_mensual">Solo Mensual ($25)</option>
+                  <option value="solo_diario">Solo Diario ($3)</option>
+                  <option value="solo_inscripcion">Solo Inscripción ($5)</option>
+                  <option value="sin_pago">Sin pago inicial</option>
+                </select>
+              </div>
+
+              {/* Registration Date */}
+              <div>
+                <label className="block text-gym-gray text-xs mb-1">Fecha de inscripción</label>
+                <input
+                  {...register('fechaInscripcion')}
+                  type="date"
+                  className="w-full bg-gym-black border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gym-red"
+                  defaultValue={new Date().toISOString().split('T')[0]}
+                />
+              </div>
+
               <button
                 type="submit"
                 disabled={saving}
                 className="w-full bg-gym-red hover:bg-gym-red-hover disabled:opacity-50 text-white font-bold py-3 rounded-xl transition-colors mt-2"
               >
-                {saving ? 'Registrando...' : 'Registrar cliente — $30'}
+                {saving ? 'Registrando...' : 'Registrar cliente'}
               </button>
             </form>
           </div>
