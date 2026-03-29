@@ -348,7 +348,7 @@ export default function Asistencia() {
                     <button
                       onClick={() => marcarEntrada(client)}
                       disabled={marking === client.id}
-                      className="w-full px-3 py-2 bg-gym-red hover:bg-gym-red-hover disabled:opacity-50 text-white font-bold text-sm rounded-lg transition-colors flex items-center justify-center gap-2"
+                      className="w-full px-3 py-2 bg-gym-red hover:bg-gym-red-hover disabled:opacity-50 text-white font-bold text-sm rounded-lg btn-interactive flex items-center justify-center gap-2"
                     >
                       {marking === client.id ? <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <LogIn className="w-4 h-4" />}
                       Entrada
@@ -380,7 +380,7 @@ export default function Asistencia() {
                         <button
                           onClick={() => marcarSalida(entry.id, client)}
                           disabled={marking === entry.id}
-                          className="w-full px-3 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-bold text-sm rounded-lg transition-colors flex items-center justify-center gap-2"
+                          className="w-full px-3 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-bold text-sm rounded-lg btn-interactive flex items-center justify-center gap-2"
                         >
                           {marking === entry.id ? <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <LogOut className="w-4 h-4" />}
                           Salida
@@ -608,7 +608,7 @@ export default function Asistencia() {
                       }
                       disabled={!client.telefono}
                       title={client.telefono ? 'Enviar WhatsApp' : 'Teléfono no configurado'}
-                      className="p-2 rounded-lg bg-green-500/10 text-green-400 hover:bg-green-500/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                      className="p-2 rounded-lg bg-green-500/10 text-green-400 hover:bg-green-500/20 disabled:opacity-40 disabled:cursor-not-allowed btn-icon"
                     >
                       <MessageCircle className="w-4 h-4" />
                     </button>
@@ -642,7 +642,7 @@ export default function Asistencia() {
                       }
                       disabled={!client.telefono}
                       title={client.telefono ? 'Enviar WhatsApp' : 'Teléfono no configurado'}
-                      className="p-2 rounded-lg bg-green-500/10 text-green-400 hover:bg-green-500/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                      className="p-2 rounded-lg bg-green-500/10 text-green-400 hover:bg-green-500/20 disabled:opacity-40 disabled:cursor-not-allowed btn-icon"
                     >
                       <MessageCircle className="w-4 h-4" />
                     </button>

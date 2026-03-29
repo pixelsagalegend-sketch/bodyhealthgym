@@ -49,7 +49,7 @@ export default function Precios() {
           {planes.map((plan) => (
             <div
               key={plan.name}
-              className={`relative rounded-2xl p-8 border transition-all hover:-translate-y-1 ${
+              className={`relative rounded-2xl p-8 border transition-transform duration-200 hover:-translate-y-1 ${
                 plan.highlight
                   ? 'bg-gym-red border-gym-red shadow-2xl shadow-gym-red/20'
                   : 'bg-gym-dark border-white/10 hover:border-gym-red/30'
@@ -76,7 +76,7 @@ export default function Precios() {
               </ul>
               <a
                 href="#contacto"
-                className={`block text-center font-bold py-3 rounded-xl transition-all ${
+                className={`block text-center font-bold py-3 rounded-xl btn-interactive ${
                   plan.highlight
                     ? 'bg-white text-gym-red hover:bg-white/90'
                     : 'bg-gym-red hover:bg-gym-red-hover text-white'
@@ -96,7 +96,7 @@ export default function Precios() {
           </div>
           <a
             href="#contacto"
-            className="flex-shrink-0 border border-gym-red text-gym-red hover:bg-gym-red hover:text-white font-bold px-6 py-3 rounded-xl transition-all"
+            className="flex-shrink-0 border border-gym-red text-gym-red hover:bg-gym-red hover:text-white font-bold px-6 py-3 rounded-xl btn-interactive"
           >
             Consultar precio →
           </a>

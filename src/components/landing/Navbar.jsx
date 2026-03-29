@@ -51,13 +51,13 @@ export default function Navbar() {
           <div className="flex items-center gap-3">
             <Link
               to="/login"
-              className="hidden md:inline-flex bg-gym-red hover:bg-gym-red-hover text-white text-sm font-bold px-5 py-2 rounded-lg transition-colors"
+              className="hidden md:inline-flex bg-gym-red hover:bg-gym-red-hover text-white text-sm font-bold px-5 py-2 rounded-lg btn-interactive"
             >
               Iniciar Sesión
             </Link>
             <button
               onClick={() => setMenuOpen(!menuOpen)}
-              className="md:hidden text-white"
+              className="md:hidden text-white btn-icon"
             >
               {menuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
@@ -79,7 +79,7 @@ export default function Navbar() {
             ))}
             <Link
               to="/login"
-              className="block bg-gym-red text-white text-center font-bold px-5 py-2 rounded-lg mt-2"
+              className="block bg-gym-red text-white text-center font-bold px-5 py-2 rounded-lg mt-2 btn-interactive"
             >
               Iniciar Sesión
             </Link>

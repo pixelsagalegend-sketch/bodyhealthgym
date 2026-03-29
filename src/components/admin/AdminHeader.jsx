@@ -87,7 +87,7 @@ export default function AdminHeader({ onMenuClick, isSidebarOpen }) {
       {/* Mobile Menu Button */}
       <button
         onClick={onMenuClick}
-        className="md:hidden text-white hover:text-gym-red transition-colors p-2 -m-2"
+        className="md:hidden text-white hover:text-gym-red btn-icon p-2 -m-2"
       >
         <Menu className={`w-5 h-5 transition-transform ${isSidebarOpen ? 'rotate-90' : ''}`} />
       </button>
@@ -114,7 +114,7 @@ export default function AdminHeader({ onMenuClick, isSidebarOpen }) {
               setResults([])
               setIsOpen(false)
             }}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-gym-gray hover:text-white transition-colors"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-gym-gray hover:text-white btn-icon"
           >
             <X className="w-3.5 h-3.5" />
           </button>
@@ -129,7 +129,7 @@ export default function AdminHeader({ onMenuClick, isSidebarOpen }) {
                 <button
                   key={client.id}
                   onClick={() => handleSelect(client)}
-                  className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/5 transition-colors text-left border-b border-white/5 last:border-0"
+                  className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/5 nav-interactive text-left border-b border-white/5 last:border-0"
                 >
                   <div>
                     <div className="text-white text-xs sm:text-sm font-semibold">
@@ -154,7 +154,7 @@ export default function AdminHeader({ onMenuClick, isSidebarOpen }) {
         </div>
         <button
           onClick={handleSignOut}
-          className="flex items-center gap-2 text-gym-gray hover:text-gym-red transition-colors text-xs sm:text-sm p-2 -m-2"
+          className="flex items-center gap-2 text-gym-gray hover:text-gym-red btn-icon text-xs sm:text-sm p-2 -m-2"
           title="Salir"
         >
           <LogOut className="w-4 h-4 flex-shrink-0" />

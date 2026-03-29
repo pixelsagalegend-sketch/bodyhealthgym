@@ -148,7 +148,7 @@ export default function Contacto() {
               <button
                 type="submit"
                 disabled={sending || Object.keys(errors).length > 0}
-                className="w-full bg-gym-red hover:bg-gym-red-hover disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
+                className="w-full bg-gym-red hover:bg-gym-red-hover disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3 rounded-lg btn-interactive flex items-center justify-center gap-2"
               >
                 {sending ? (
                   <>

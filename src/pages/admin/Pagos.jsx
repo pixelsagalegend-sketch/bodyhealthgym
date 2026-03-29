@@ -119,7 +119,7 @@ export default function Pagos() {
         </div>
         <button
           onClick={() => setShowModal(true)}
-          className="flex items-center justify-center sm:justify-start gap-2 bg-gym-red hover:bg-gym-red-hover text-white font-bold px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg sm:rounded-xl transition-colors text-sm sm:text-base"
+          className="flex items-center justify-center sm:justify-start gap-2 bg-gym-red hover:bg-gym-red-hover text-white font-bold px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg sm:rounded-xl btn-interactive text-sm sm:text-base"
         >
           <Plus className="w-4 h-4 flex-shrink-0" />
           <span className="hidden sm:inline">Registrar pago</span>
@@ -135,7 +135,7 @@ export default function Pagos() {
             <button
               key={tipo}
               onClick={() => setFiltroTipo(tipo)}
-              className={`text-xs sm:text-sm px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-medium transition-colors whitespace-nowrap flex-shrink-0 ${filtroTipo === tipo ? 'bg-gym-red text-white' : 'bg-gym-dark text-gym-gray hover:text-white'}`}
+              className={`text-xs sm:text-sm px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-medium nav-interactive whitespace-nowrap flex-shrink-0 ${filtroTipo === tipo ? 'bg-gym-red text-white' : 'bg-gym-dark text-gym-gray hover:text-white'}`}
             >
               {tipo === '' ? 'Todos' : tipo.charAt(0).toUpperCase() + tipo.slice(1)}
             </button>
@@ -249,7 +249,7 @@ export default function Pagos() {
           <div className="bg-gym-dark border border-white/10 rounded-2xl p-8 w-full max-w-lg shadow-2xl">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-white font-bold text-lg">Registrar Pago</h3>
-              <button onClick={() => { setShowModal(false); reset() }} className="text-gym-gray hover:text-white">
+              <button onClick={() => { setShowModal(false); reset() }} className="text-gym-gray hover:text-white btn-icon">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -317,7 +317,7 @@ export default function Pagos() {
               </div>
 
               <button type="submit" disabled={saving}
-                className="w-full bg-gym-red hover:bg-gym-red-hover disabled:opacity-50 text-white font-bold py-3 rounded-xl transition-colors">
+                className="w-full bg-gym-red hover:bg-gym-red-hover disabled:opacity-50 text-white font-bold py-3 rounded-xl btn-interactive">
                 {saving ? 'Guardando...' : `Registrar — $${montoCalculado.toFixed(2)}`}
               </button>
             </form>

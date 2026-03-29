@@ -87,7 +87,7 @@ export default function Promociones() {
         </div>
         <button
           onClick={() => setShowModal(true)}
-          className="flex items-center justify-center sm:justify-start gap-2 bg-gym-red hover:bg-gym-red-hover text-white font-bold px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg sm:rounded-xl transition-colors text-sm sm:text-base"
+          className="flex items-center justify-center sm:justify-start gap-2 bg-gym-red hover:bg-gym-red-hover text-white font-bold px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg sm:rounded-xl btn-interactive text-sm sm:text-base"
         >
           <Plus className="w-4 h-4 flex-shrink-0" />
           <span className="hidden sm:inline">Nueva promoción</span>
@@ -124,10 +124,10 @@ export default function Promociones() {
                 </p>
               )}
               <div className="flex items-center gap-2 pt-2 sm:pt-3 border-t border-white/5">
-                <button onClick={() => openEdit(promo)} className="flex items-center gap-1 text-gym-gray hover:text-white text-xs transition-colors">
+                <button onClick={() => openEdit(promo)} className="flex items-center gap-1 text-gym-gray hover:text-white text-xs btn-icon">
                   <Pencil className="w-3 h-3 sm:w-3.5 sm:h-3.5 flex-shrink-0" /> <span className="hidden sm:inline">Editar</span>
                 </button>
-                <button onClick={() => toggleActiva(promo)} className={`flex items-center gap-1 text-xs transition-colors ml-auto flex-shrink-0 ${promo.activa ? 'text-green-400 hover:text-gym-gray' : 'text-gym-gray hover:text-green-400'}`}>
+                <button onClick={() => toggleActiva(promo)} className={`flex items-center gap-1 text-xs btn-icon ml-auto flex-shrink-0 ${promo.activa ? 'text-green-400 hover:text-gym-gray' : 'text-gym-gray hover:text-green-400'}`}>
                   {promo.activa ? <ToggleRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <ToggleLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
                   <span className="hidden sm:inline">{promo.activa ? 'Activa' : 'Inactiva'}</span>
                 </button>
@@ -197,7 +197,7 @@ export default function Promociones() {
                 </div>
               </div>
               <button type="submit" disabled={saving}
-                className="w-full bg-gym-red hover:bg-gym-red-hover disabled:opacity-50 text-white font-bold py-3 rounded-xl transition-colors">
+                className="w-full bg-gym-red hover:bg-gym-red-hover disabled:opacity-50 text-white font-bold py-3 rounded-xl btn-interactive">
                 {saving ? 'Guardando...' : editando ? 'Actualizar' : 'Crear promoción'}
               </button>
             </form>

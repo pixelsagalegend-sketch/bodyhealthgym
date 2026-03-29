@@ -326,7 +326,7 @@ export default function Clientes() {
         </div>
         <button
           onClick={() => setShowModal(true)}
-          className="flex items-center justify-center sm:justify-start gap-2 bg-gym-red hover:bg-gym-red-hover text-white font-bold px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg sm:rounded-xl transition-colors text-sm sm:text-base"
+          className="flex items-center justify-center sm:justify-start gap-2 bg-gym-red hover:bg-gym-red-hover text-white font-bold px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg sm:rounded-xl btn-interactive text-sm sm:text-base"
         >
           <Plus className="w-4 h-4 flex-shrink-0" />
           <span className="hidden sm:inline">Nuevo cliente</span>
@@ -397,10 +397,10 @@ export default function Clientes() {
                       </td>
                       <td className="px-4 sm:px-6 py-3 sm:py-4">
                         <div className="flex items-center gap-1 sm:gap-2">
-                          <button onClick={() => verPagos(client)} className="p-1.5 text-gym-gray hover:text-white transition-colors" title="Ver pagos">
+                          <button onClick={() => verPagos(client)} className="p-1.5 text-gym-gray hover:text-white btn-icon" title="Ver pagos">
                             <CreditCard className="w-4 h-4" />
                           </button>
-                          <button onClick={() => toggleEstado(client)} className="p-1.5 text-gym-gray hover:text-white transition-colors" title="Cambiar estado">
+                          <button onClick={() => toggleEstado(client)} className="p-1.5 text-gym-gray hover:text-white btn-icon" title="Cambiar estado">
                             {client.estado === 'activo' ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
                           </button>
                         </div>
@@ -441,11 +441,11 @@ export default function Clientes() {
                       <span className={`font-bold px-2 py-0.5 rounded-full ${membershipStatus.color}`}>{membershipStatus.label}</span>
                     </div>
                     <div className="flex items-center gap-2 pt-2 border-t border-white/5">
-                      <button onClick={() => verPagos(client)} className="flex-1 p-2 text-xs text-gym-gray hover:text-white hover:bg-white/5 rounded transition-colors flex items-center justify-center gap-1" title="Ver pagos">
+                      <button onClick={() => verPagos(client)} className="flex-1 p-2 text-xs text-gym-gray hover:text-white hover:bg-white/5 rounded btn-icon flex items-center justify-center gap-1" title="Ver pagos">
                         <CreditCard className="w-3.5 h-3.5" />
                         <span>Pagos</span>
                       </button>
-                      <button onClick={() => toggleEstado(client)} className="flex-1 p-2 text-xs text-gym-gray hover:text-white hover:bg-white/5 rounded transition-colors flex items-center justify-center gap-1" title="Cambiar estado">
+                      <button onClick={() => toggleEstado(client)} className="flex-1 p-2 text-xs text-gym-gray hover:text-white hover:bg-white/5 rounded btn-icon flex items-center justify-center gap-1" title="Cambiar estado">
                         {client.estado === 'activo' ? <UserX className="w-3.5 h-3.5" /> : <UserCheck className="w-3.5 h-3.5" />}
                         <span>{client.estado === 'activo' ? 'Desactivar' : 'Activar'}</span>
                       </button>
@@ -558,7 +558,7 @@ export default function Clientes() {
               <button
                 type="submit"
                 disabled={saving}
-                className="w-full bg-gym-red hover:bg-gym-red-hover disabled:opacity-50 text-white font-bold py-3 rounded-xl transition-colors mt-4"
+                className="w-full bg-gym-red hover:bg-gym-red-hover disabled:opacity-50 text-white font-bold py-3 rounded-xl btn-interactive mt-4"
               >
                 {saving ? 'Registrando...' : 'Registrar cliente'}
               </button>
@@ -587,7 +587,7 @@ export default function Clientes() {
                     )
                   }
                   title={showPagos.telefono ? 'Enviar WhatsApp' : 'Sin teléfono registrado'}
-                  className={`p-2 rounded-lg transition-colors flex-shrink-0 ${
+                  className={`p-2 rounded-lg btn-icon flex-shrink-0 ${
                     showPagos.telefono
                       ? 'bg-green-500/10 text-green-400 hover:bg-green-500/20'
                       : 'bg-gray-500/10 text-gray-400 cursor-not-allowed opacity-50'
@@ -595,7 +595,7 @@ export default function Clientes() {
                 >
                   <MessageCircle className="w-4 h-4" />
                 </button>
-                <button onClick={() => setShowPagos(null)} className="text-gym-gray hover:text-white">
+                <button onClick={() => setShowPagos(null)} className="text-gym-gray hover:text-white btn-icon">
                   <X className="w-5 h-5" />
                 </button>
               </div>
@@ -610,7 +610,7 @@ export default function Clientes() {
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
-                  className={`flex-1 py-2 text-sm font-bold rounded-lg transition-colors ${
+                  className={`flex-1 py-2 text-sm font-bold rounded-lg nav-interactive ${
                     activeTab === tab ? 'bg-gym-red text-white' : 'text-gym-gray hover:text-white'
                   }`}
                 >
@@ -658,7 +658,7 @@ export default function Clientes() {
                     <button
                       onClick={addPartialPayment}
                       disabled={loadingPartialPayment}
-                      className="bg-gym-red hover:bg-gym-red-hover disabled:opacity-50 text-white font-bold px-4 py-2 rounded-lg transition-colors text-sm"
+                      className="bg-gym-red hover:bg-gym-red-hover disabled:opacity-50 text-white font-bold px-4 py-2 rounded-lg btn-interactive text-sm"
                     >
                       {loadingPartialPayment ? 'Guardando...' : 'Registrar'}
                     </button>

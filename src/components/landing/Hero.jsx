@@ -40,13 +40,13 @@ export default function Hero() {
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <a
             href="#precios"
-            className="bg-gym-red hover:bg-gym-red-hover text-white font-bold px-8 py-4 rounded-xl text-lg transition-all hover:scale-105 active:scale-95"
+            className="bg-gym-red hover:bg-gym-red-hover text-white font-bold px-8 py-4 rounded-xl text-lg btn-interactive"
           >
             ¡Únete Hoy!
           </a>
           <a
             href="#servicios"
-            className="border border-white/20 hover:border-white/40 text-white font-bold px-8 py-4 rounded-xl text-lg transition-all hover:bg-white/5"
+            className="border border-white/20 hover:border-white/40 text-white font-bold px-8 py-4 rounded-xl text-lg hover:bg-white/5 btn-interactive"
           >
             Conoce más
           </a>

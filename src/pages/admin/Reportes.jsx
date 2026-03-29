@@ -305,7 +305,7 @@ export default function Reportes() {
         </div>
         <button
           onClick={exportPDF}
-          className="flex items-center justify-center sm:justify-start gap-2 bg-gym-red hover:bg-gym-red-hover text-white font-bold px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg sm:rounded-xl transition-colors text-sm sm:text-base"
+          className="flex items-center justify-center sm:justify-start gap-2 bg-gym-red hover:bg-gym-red-hover text-white font-bold px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg sm:rounded-xl btn-interactive text-sm sm:text-base"
         >
           <FileDown className="w-4 h-4 flex-shrink-0" />
           <span className="hidden sm:inline">Exportar PDF</span>
@@ -323,7 +323,7 @@ export default function Reportes() {
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-bold rounded-lg transition-colors whitespace-nowrap flex-shrink-0 ${
+            className={`px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-bold rounded-lg nav-interactive whitespace-nowrap flex-shrink-0 ${
               activeTab === tab ? 'bg-gym-red text-white' : 'text-gym-gray hover:text-white'
             }`}
           >

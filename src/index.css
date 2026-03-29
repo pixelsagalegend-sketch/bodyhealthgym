@@ -28,9 +28,70 @@ body {
 }
 
 .animate-fade-in {
-  animation: fadeIn 0.6s ease-in-out;
+  animation: fadeIn 0.5s cubic-bezier(0.23, 1, 0.32, 1) both;
 }
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(20px); }
+  from { opacity: 0; transform: translateY(16px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+/* ===========================
+   Button & Interactive Animations
+   Emil Kowalski — Design Engineering
+   animating only transform + colors (GPU-only)
+   =========================== */
+
+:root {
+  --ease-strong: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+/* Primary CTA buttons and action links */
+.btn-interactive {
+  transition-property: transform, background-color, border-color, color, opacity;
+  transition-duration: 140ms;
+  transition-timing-function: var(--ease-strong);
+}
+
+.btn-interactive:active:not(:disabled):not([disabled]) {
+  transform: scale(0.97);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .btn-interactive:hover:not(:disabled):not([disabled]) {
+    transform: scale(1.02);
+  }
+  .btn-interactive:active:not(:disabled):not([disabled]) {
+    transform: scale(0.97);
+  }
+}
+
+/* Small icon-only buttons — more expressive scale on smaller targets */
+.btn-icon {
+  transition-property: transform, color, opacity, background-color;
+  transition-duration: 120ms;
+  transition-timing-function: var(--ease-strong);
+}
+
+.btn-icon:active:not(:disabled) {
+  transform: scale(0.85);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .btn-icon:hover:not(:disabled) {
+    transform: scale(1.15);
+  }
+  .btn-icon:active:not(:disabled) {
+    transform: scale(0.85);
+  }
+}
+
+/* Nav and sidebar links — press feedback, no hover scale (used too frequently) */
+.nav-interactive {
+  transition-property: transform, background-color, color;
+  transition-duration: 120ms;
+  transition-timing-function: var(--ease-strong);
+}
+
+.nav-interactive:active {
+  transform: scale(0.97);
 }
