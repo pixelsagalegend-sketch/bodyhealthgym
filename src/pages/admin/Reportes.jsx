@@ -215,68 +215,112 @@ export default function Reportes() {
       const { jsPDF } = await import('jspdf')
       const doc = new jsPDF()
       const now = new Date()
-      const title = `Reporte ${activeTab === 'diario' ? 'Diario' : activeTab === 'semanal' ? 'Semanal' : 'Mensual'} — Body Health Gym`
+      const tabLabel = activeTab === 'diario' ? 'Diario' : activeTab === 'semanal' ? 'Semanal' : 'Mensual'
+      const pageW = doc.internal.pageSize.getWidth()
 
-      // Title
+      // ── Encabezado ──────────────────────────────────────────────
+      doc.setFillColor(220, 38, 38)
+      doc.rect(0, 0, pageW, 22, 'F')
+      doc.setTextColor(255, 255, 255)
       doc.setFontSize(16)
-      doc.text(title, 10, 10)
-
-      // Date
-      doc.setFontSize(10)
-      doc.text(`Generado: ${format(now, 'dd MMM yyyy HH:mm', { locale: es })}`, 10, 18)
-
-      // Summary Cards
-      doc.setFontSize(12)
-      doc.text('Resumen', 10, 28)
-
-      const summaryData = [
-        [`Total Ingresos: $${reportData.totalIngresos.toFixed(2)}`],
-        [`Nuevos Clientes: ${reportData.nuevos}`],
-        [`Renovaciones: ${reportData.renovaciones}`],
-      ]
-
-      doc.setFontSize(10)
-      let yPos = 35
-      summaryData.forEach((row) => {
-        doc.text(row[0], 10, yPos)
-        yPos += 7
-      })
-
-      // By Tipo Table
-      yPos += 5
-      doc.setFontSize(12)
-      doc.text('Ingresos por Tipo', 10, yPos)
-      yPos += 7
-
+      doc.setFont('helvetica', 'bold')
+      doc.text(`Body Health Gym — Reporte ${tabLabel}`, 10, 10)
       doc.setFontSize(9)
-      const tipoTableData = reportData.byTipo.map((item) => [item.tipo, item.cantidad.toString(), `$${item.monto.toFixed(2)}`])
-      doc.autoTable({
-        head: [['Tipo', 'Cantidad', 'Monto']],
-        body: tipoTableData,
-        startY: yPos,
-        theme: 'grid',
-        headStyles: { fillColor: [220, 38, 38], textColor: [255, 255, 255] },
-        bodyStyles: { textColor: [0, 0, 0] },
+      doc.setFont('helvetica', 'normal')
+      doc.text(`Generado: ${format(now, "dd 'de' MMMM yyyy, HH:mm", { locale: es })}`, 10, 17)
+
+      // ── Resumen ──────────────────────────────────────────────────
+      let y = 32
+      doc.setTextColor(0, 0, 0)
+      doc.setFontSize(12)
+      doc.setFont('helvetica', 'bold')
+      doc.text('Resumen del período', 10, y)
+      y += 6
+
+      const drawRow = (label, value, yy, shade) => {
+        if (shade) { doc.setFillColor(245, 245, 245); doc.rect(10, yy - 4, pageW - 20, 7, 'F') }
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(10)
+        doc.setTextColor(80, 80, 80)
+        doc.text(label, 14, yy)
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(0, 0, 0)
+        doc.text(value, pageW - 14, yy, { align: 'right' })
+      }
+
+      drawRow('Total ingresos del período', `$${reportData.totalIngresos.toFixed(2)}`, y, false)
+      y += 8
+      drawRow('Total ingresos del año', `$${reportData.totalIngresosAnual.toFixed(2)}`, y, true)
+      y += 8
+      drawRow('Nuevos clientes (inscripciones)', `${reportData.nuevos}`, y, false)
+      y += 8
+      drawRow('Renovaciones mensuales', `${reportData.renovaciones}`, y, true)
+      y += 14
+
+      // ── Tabla: Ingresos por tipo ─────────────────────────────────
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(12)
+      doc.setTextColor(0, 0, 0)
+      doc.text('Ingresos por tipo de pago', 10, y)
+      y += 6
+
+      // Cabecera tabla
+      doc.setFillColor(220, 38, 38)
+      doc.rect(10, y - 4, pageW - 20, 7, 'F')
+      doc.setTextColor(255, 255, 255)
+      doc.setFontSize(9)
+      doc.text('Tipo', 14, y)
+      doc.text('Cantidad', pageW / 2, y, { align: 'center' })
+      doc.text('Monto', pageW - 14, y, { align: 'right' })
+      y += 8
+
+      reportData.byTipo.forEach((item, i) => {
+        if (i % 2 === 0) { doc.setFillColor(250, 250, 250); doc.rect(10, y - 4, pageW - 20, 7, 'F') }
+        doc.setTextColor(40, 40, 40)
+        doc.setFont('helvetica', 'normal')
+        doc.text(item.tipo, 14, y)
+        doc.text(item.cantidad.toString(), pageW / 2, y, { align: 'center' })
+        doc.setFont('helvetica', 'bold')
+        doc.text(`$${item.monto.toFixed(2)}`, pageW - 14, y, { align: 'right' })
+        y += 8
       })
+      y += 6
 
-      // Promotions Table (if any)
+      // ── Tabla: Promociones ───────────────────────────────────────
       if (reportData.promos.length > 0) {
-        yPos = doc.lastAutoTable.finalY + 10
+        doc.setFont('helvetica', 'bold')
         doc.setFontSize(12)
-        doc.text('Promociones Utilizadas', 10, yPos)
-        yPos += 7
+        doc.setTextColor(0, 0, 0)
+        doc.text('Promociones utilizadas', 10, y)
+        y += 6
 
+        doc.setFillColor(220, 38, 38)
+        doc.rect(10, y - 4, pageW - 20, 7, 'F')
+        doc.setTextColor(255, 255, 255)
         doc.setFontSize(9)
-        const promoTableData = reportData.promos.map((p) => [p.nombre, `$${p.monto.toFixed(2)}`])
-        doc.autoTable({
-          head: [['Promoción', 'Monto']],
-          body: promoTableData,
-          startY: yPos,
-          theme: 'grid',
-          headStyles: { fillColor: [220, 38, 38], textColor: [255, 255, 255] },
-          bodyStyles: { textColor: [0, 0, 0] },
+        doc.text('Promoción', 14, y)
+        doc.text('Monto', pageW - 14, y, { align: 'right' })
+        y += 8
+
+        reportData.promos.forEach((p, i) => {
+          if (i % 2 === 0) { doc.setFillColor(250, 250, 250); doc.rect(10, y - 4, pageW - 20, 7, 'F') }
+          doc.setTextColor(40, 40, 40)
+          doc.setFont('helvetica', 'normal')
+          doc.text(p.nombre, 14, y)
+          doc.setFont('helvetica', 'bold')
+          doc.text(`$${p.monto.toFixed(2)}`, pageW - 14, y, { align: 'right' })
+          y += 8
         })
       }
+
+      // ── Pie de página ────────────────────────────────────────────
+      doc.setDrawColor(220, 38, 38)
+      doc.setLineWidth(0.5)
+      doc.line(10, 285, pageW - 10, 285)
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(8)
+      doc.setTextColor(150, 150, 150)
+      doc.text('Body Health Gym — Sistema de Administración', pageW / 2, 290, { align: 'center' })
 
       doc.save(`reporte-${activeTab}-${format(now, 'yyyy-MM-dd-HHmm')}.pdf`)
       toast.success('PDF exportado correctamente')
