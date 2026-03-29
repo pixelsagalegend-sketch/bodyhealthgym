@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
-import { Plus, X, Filter } from 'lucide-react'
+import { Plus, X, Filter, AlertTriangle } from 'lucide-react'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 
@@ -32,6 +32,8 @@ export default function Pagos() {
   const [montoCalculado, setMontoCalculado] = useState(0)
   const [filtroTipo, setFiltroTipo] = useState('')
   const [precioBase, setPrecioBase] = useState(PRECIOS_BASE.mensual)
+  const [membresiaActiva, setMembresiaActiva] = useState(null)
+  const [confirmandoPago, setConfirmandoPago] = useState(false)
 
   const { register, handleSubmit, reset, watch, setValue } = useForm({
     defaultValues: { tipo: 'mensual', precio_diario: 3 }
@@ -40,6 +42,7 @@ export default function Pagos() {
   const tipoWatch = watch('tipo')
   const promoWatch = watch('promocion_id')
   const precioDiario = watch('precio_diario')
+  const clienteWatch = watch('client_id')
 
   useEffect(() => {
     fetchAll()
@@ -53,6 +56,25 @@ export default function Pagos() {
     setSelectedPromo(promo || null)
     setMontoCalculado(calcularMonto(tipoWatch, promo, base))
   }, [tipoWatch, promoWatch, precioDiario, promociones])
+
+  // Al cambiar el cliente seleccionado, verificar si tiene membresía activa
+  useEffect(() => {
+    setMembresiaActiva(null)
+    setConfirmandoPago(false)
+    if (!clienteWatch) return
+    const hoy = new Date().toISOString().split('T')[0]
+    supabase
+      .from('memberships')
+      .select('fecha_vencimiento')
+      .eq('client_id', clienteWatch)
+      .gte('fecha_vencimiento', hoy)
+      .order('fecha_vencimiento', { ascending: false })
+      .limit(1)
+      .single()
+      .then(({ data }) => {
+        if (data) setMembresiaActiva(data.fecha_vencimiento)
+      })
+  }, [clienteWatch])
 
   const fetchAll = async () => {
     setLoading(true)
@@ -68,6 +90,11 @@ export default function Pagos() {
   }
 
   const onSubmit = async (formData) => {
+    // Si tiene membresía activa y no ha confirmado aún, mostrar advertencia
+    if (membresiaActiva && !confirmandoPago) {
+      setConfirmandoPago(true)
+      return
+    }
     setSaving(true)
     try {
       const promo = promociones.find((p) => p.id === formData.promocion_id)
@@ -101,6 +128,8 @@ export default function Pagos() {
       toast.success(`Pago registrado — $${monto.toFixed(2)}`)
       reset()
       setShowModal(false)
+      setMembresiaActiva(null)
+      setConfirmandoPago(false)
       fetchAll()
     } catch (err) {
       toast.error('Error al registrar pago')
@@ -249,7 +278,7 @@ export default function Pagos() {
           <div className="bg-gym-dark border border-white/10 rounded-2xl p-8 w-full max-w-lg shadow-2xl">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-white font-bold text-lg">Registrar Pago</h3>
-              <button onClick={() => { setShowModal(false); reset() }} className="text-gym-gray hover:text-white btn-icon">
+              <button onClick={() => { setShowModal(false); reset(); setMembresiaActiva(null); setConfirmandoPago(false) }} className="text-gym-gray hover:text-white btn-icon">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -316,9 +345,45 @@ export default function Pagos() {
                 </div>
               </div>
 
+              {/* Advertencia membresía activa */}
+              {membresiaActiva && (
+                <div className={`rounded-xl p-4 border ${confirmandoPago ? 'bg-red-500/15 border-red-500/50' : 'bg-yellow-500/10 border-yellow-500/30'}`}>
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className={`w-5 h-5 flex-shrink-0 mt-0.5 ${confirmandoPago ? 'text-red-400' : 'text-yellow-400'}`} />
+                    <div>
+                      <p className={`font-bold text-sm ${confirmandoPago ? 'text-red-400' : 'text-yellow-400'}`}>
+                        {confirmandoPago ? '¿Confirmar de todas formas?' : 'Este cliente ya tiene membresía activa'}
+                      </p>
+                      <p className="text-gym-gray text-xs mt-1">
+                        {confirmandoPago
+                          ? 'Estás a punto de registrar un pago aunque el cliente ya tiene cobertura vigente. ¿Deseas continuar?'
+                          : `Su membresía vence el ${format(new Date(membresiaActiva + 'T12:00:00'), "dd 'de' MMMM 'de' yyyy", { locale: es })}.`}
+                      </p>
+                    </div>
+                  </div>
+                  {confirmandoPago && (
+                    <button
+                      type="button"
+                      onClick={() => setConfirmandoPago(false)}
+                      className="mt-3 text-xs text-gym-gray hover:text-white underline"
+                    >
+                      Cancelar
+                    </button>
+                  )}
+                </div>
+              )}
+
               <button type="submit" disabled={saving}
-                className="w-full bg-gym-red hover:bg-gym-red-hover disabled:opacity-50 text-white font-bold py-3 rounded-xl btn-interactive">
-                {saving ? 'Guardando...' : `Registrar — $${montoCalculado.toFixed(2)}`}
+                className={`w-full disabled:opacity-50 text-white font-bold py-3 rounded-xl btn-interactive ${
+                  confirmandoPago
+                    ? 'bg-red-600 hover:bg-red-700'
+                    : 'bg-gym-red hover:bg-gym-red-hover'
+                }`}>
+                {saving
+                  ? 'Guardando...'
+                  : confirmandoPago
+                  ? `Sí, registrar de todas formas — $${montoCalculado.toFixed(2)}`
+                  : `Registrar — $${montoCalculado.toFixed(2)}`}
               </button>
             </form>
           </div>
