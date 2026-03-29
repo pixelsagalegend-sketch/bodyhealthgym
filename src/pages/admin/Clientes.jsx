@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
@@ -23,6 +23,17 @@ const COUNTRY_CODES = [
 function PhoneInputWithCode({ field }) {
   const [isOpen, setIsOpen] = useState(false)
   const [selectedCode, setSelectedCode] = useState(COUNTRY_CODES[0])
+  const containerRef = useRef(null)
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   const phoneNumber = field.value ? field.value.replace(/\D/g, '').replace(selectedCode.code.replace('+', ''), '') : ''
 
@@ -39,7 +50,7 @@ function PhoneInputWithCode({ field }) {
   }
 
   return (
-    <div className="relative flex">
+    <div ref={containerRef} className="relative flex">
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
@@ -79,6 +90,22 @@ function PhoneInputWithCode({ field }) {
 }
 
 
+// Traduce errores técnicos de la BD a mensajes legibles en español
+function getFriendlyError(err) {
+  const msg = err?.message || ''
+  if (msg.includes('clients_email_key') || (msg.includes('unique') && msg.includes('email')))
+    return 'Ya existe un cliente registrado con ese correo electrónico'
+  if (msg.includes('clients_telefono') || (msg.includes('unique') && msg.includes('telefono')))
+    return 'Ya existe un cliente registrado con ese número de teléfono'
+  if (msg.includes('not-null') || msg.includes('null value'))
+    return 'Completa todos los campos obligatorios'
+  if (msg.includes('violates check constraint'))
+    return 'Uno o más datos ingresados no son válidos'
+  if (msg.includes('foreign key'))
+    return 'Error de referencia en los datos. Intenta nuevamente'
+  return 'Ocurrió un error al registrar el cliente. Intenta nuevamente'
+}
+
 export default function Clientes() {
   const { user } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -96,7 +123,7 @@ export default function Clientes() {
   const [partialPaymentAmount, setPartialPaymentAmount] = useState('')
   const [loadingPartialPayment, setLoadingPartialPayment] = useState(false)
 
-  const { register, handleSubmit, reset, control, formState: { errors } } = useForm({
+  const { register, handleSubmit, reset, control, setError, formState: { errors } } = useForm({
     defaultValues: {
       fechaInscripcion: new Date().toISOString().split('T')[0]
     }
@@ -159,34 +186,41 @@ export default function Clientes() {
         .single()
       if (clientError) throw clientError
 
-      // 2. Create payment(s) based on type
+      // 2. Create payment(s) based on type — cada pago tiene su propia nota
       const pagosACrear = []
       let montoTotal = 0
-      let notasTotal = []
 
       if (tipoPago === 'inscripcion_mensual') {
-        pagosACrear.push({ tipo: 'inscripcion', monto: 5 })
-        pagosACrear.push({ tipo: 'mensual', monto: 25 })
+        pagosACrear.push({ tipo: 'inscripcion', monto: 5,  nota: 'Inscripción $5.00' })
+        pagosACrear.push({ tipo: 'mensual',     monto: 25, nota: 'Mensual $25.00' })
         montoTotal = 30
-        notasTotal = ['Inscripción $5', 'Primer mes $25']
       } else if (tipoPago === 'solo_mensual') {
-        pagosACrear.push({ tipo: 'mensual', monto: 25 })
+        pagosACrear.push({ tipo: 'mensual', monto: 25, nota: 'Mensual $25.00' })
         montoTotal = 25
-        notasTotal = ['Primer mes $25']
       } else if (tipoPago === 'solo_diario') {
-        pagosACrear.push({ tipo: 'diario', monto: 3 })
+        pagosACrear.push({ tipo: 'diario', monto: 3, nota: 'Diario $3.00' })
         montoTotal = 3
-        notasTotal = ['Pago diario $3']
       } else if (tipoPago === 'solo_inscripcion') {
-        pagosACrear.push({ tipo: 'inscripcion', monto: 5 })
+        pagosACrear.push({ tipo: 'inscripcion', monto: 5, nota: 'Inscripción $5.00' })
         montoTotal = 5
-        notasTotal = ['Inscripción $5']
       }
 
-      // Apply discount by creating a negative payment (this will automatically reduce totals everywhere)
-      const montoFinal = Math.max(0, montoTotal - descuento)
+      // Aplicar descuento al pago más grande primero (mensual → inscripcion)
+      // La nota de cada pago afectado se actualiza para reflejar el monto real cobrado
+      if (descuento > 0 && pagosACrear.length > 0) {
+        let restante = descuento
+        for (let i = pagosACrear.length - 1; i >= 0 && restante > 0; i--) {
+          const reduccion = Math.min(restante, pagosACrear[i].monto)
+          const original = pagosACrear[i].monto
+          pagosACrear[i].monto = parseFloat((original - reduccion).toFixed(2))
+          pagosACrear[i].nota = `${pagosACrear[i].nota} — desc. -$${reduccion.toFixed(2)} → cobra $${pagosACrear[i].monto.toFixed(2)}`
+          restante = parseFloat((restante - reduccion).toFixed(2))
+        }
+      }
 
-      // Insert all payments
+      const montoFinal = pagosACrear.reduce((sum, p) => sum + p.monto, 0)
+
+      // Insert all payments con notas individuales
       if (pagosACrear.length > 0) {
         const pagosParaInsert = pagosACrear.map((pago) => ({
           client_id: client.id,
@@ -194,20 +228,8 @@ export default function Clientes() {
           monto: pago.monto,
           fecha_pago: fechaInscripcion,
           mes_correspondiente: fechaInscripcion.substring(0, 7),
-          notas: notasTotal.join(' + '),
+          notas: pago.nota,
         }))
-
-        // Add discount as a negative payment if discount exists
-        if (descuento > 0) {
-          pagosParaInsert.push({
-            client_id: client.id,
-            tipo: 'descuento',
-            monto: -descuento, // Negative amount to reduce totals
-            fecha_pago: fechaInscripcion,
-            mes_correspondiente: fechaInscripcion.substring(0, 7),
-            notas: `Descuento aplicado -$${descuento.toFixed(2)}`,
-          })
-        }
 
         const { error: pagoError } = await supabase.from('payments').insert(pagosParaInsert)
         if (pagoError) throw pagoError
@@ -236,7 +258,13 @@ export default function Clientes() {
       setShowModal(false)
       fetchClients()
     } catch (err) {
-      toast.error(err.message || 'Error al registrar cliente')
+      const msg = err?.message || ''
+      if (msg.includes('clients_email_key') || (msg.includes('unique') && msg.includes('email'))) {
+        setError('email', { message: 'Ya existe un cliente con este correo' })
+      } else if (msg.includes('clients_telefono') || (msg.includes('unique') && msg.includes('telefono'))) {
+        setError('telefono', { message: 'Ya existe un cliente con este teléfono' })
+      }
+      toast.error(getFriendlyError(err))
     }
     setSaving(false)
   }
@@ -493,19 +521,38 @@ export default function Clientes() {
               <div>
                 <label className="block text-gym-gray text-xs mb-1">Correo electrónico</label>
                 <input
-                  {...register('email', { required: true })}
+                  {...register('email', { required: 'El correo es obligatorio' })}
                   type="email"
-                  className="w-full bg-gym-black border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gym-red"
+                  className={`w-full bg-gym-black border rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-gym-red ${errors.email ? 'border-red-500' : 'border-white/10'}`}
                   placeholder="juan@email.com"
                 />
+                {errors.email && (
+                  <p className="text-red-400 text-xs mt-1">{errors.email.message}</p>
+                )}
               </div>
               <div>
                 <label className="block text-gym-gray text-xs mb-1">Teléfono (opcional)</label>
                 <Controller
                   name="telefono"
                   control={control}
+                  rules={{
+                    validate: (value) => {
+                      if (!value) return true
+                      // Quitar el código de país para validar solo el número local
+                      const codigoMatch = COUNTRY_CODES.find(cc => value.startsWith(cc.code))
+                      const numeroLocal = codigoMatch
+                        ? value.slice(codigoMatch.code.length).replace(/\D/g, '')
+                        : value.replace(/\D/g, '')
+                      if (numeroLocal.length < 8)
+                        return 'El teléfono debe tener al menos 8 dígitos'
+                      return true
+                    }
+                  }}
                   render={({ field }) => <PhoneInputWithCode field={field} />}
                 />
+                {errors.telefono && (
+                  <p className="text-red-400 text-xs mt-1">{errors.telefono.message}</p>
+                )}
               </div>
 
               {/* Payment Type Selection */}

@@ -39,13 +39,23 @@ export default function Dashboard() {
       const membershipsData = membershipsRes.data || []
       const clientsMap = new Map((clientsRes.data || []).map(c => [c.id, c]))
 
-      const porVencer = membershipsData.filter((m) => {
+      // Por cada cliente, tomar solo su membresía con la fecha de vencimiento más reciente
+      // para evitar mostrar clientes que ya renovaron pero tienen un registro antiguo próximo a vencer
+      const latestByClient = new Map()
+      membershipsData.forEach((m) => {
+        const existing = latestByClient.get(m.client_id)
+        if (!existing || m.fecha_vencimiento > existing.fecha_vencimiento) {
+          latestByClient.set(m.client_id, m)
+        }
+      })
+
+      const porVencer = Array.from(latestByClient.values()).filter((m) => {
         const venc = new Date(m.fecha_vencimiento)
         return venc <= sevenDaysLater && venc >= now
       }).length
 
-      // Get expiring members with client info
-      const expiring = membershipsData
+      // Get expiring members with client info (solo la membresía más reciente por cliente)
+      const expiring = Array.from(latestByClient.values())
         .filter((m) => {
           const venc = new Date(m.fecha_vencimiento)
           return venc <= sevenDaysLater && venc >= now
