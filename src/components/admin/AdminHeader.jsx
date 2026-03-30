@@ -27,7 +27,7 @@ export default function AdminHeader({ onMenuClick, isSidebarOpen }) {
         const q = `%${query}%`
         const { data } = await supabase
           .from('clients')
-          .select('id, nombre, apellido, telefono, email, estado')
+          .select('id, nombre, apellido, telefono, email')
           .or(`nombre.ilike.${q},apellido.ilike.${q},telefono.ilike.${q}`)
           .limit(5)
 
@@ -41,31 +41,19 @@ export default function AdminHeader({ onMenuClick, isSidebarOpen }) {
     return () => clearTimeout(timer)
   }, [query])
 
-  // Outside click detection
   useEffect(() => {
+    if (!isOpen) return
     const handleClick = (e) => {
-      if (searchRef.current && !searchRef.current.contains(e.target)) {
-        setIsOpen(false)
-      }
+      if (searchRef.current && !searchRef.current.contains(e.target)) setIsOpen(false)
     }
-
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClick)
-      return () => document.removeEventListener('mousedown', handleClick)
-    }
-  }, [isOpen])
-
-  // Escape key
-  useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        setIsOpen(false)
-      }
+      if (e.key === 'Escape') setIsOpen(false)
     }
-
-    if (isOpen) {
-      document.addEventListener('keydown', handleKeyDown)
-      return () => document.removeEventListener('keydown', handleKeyDown)
+    document.addEventListener('mousedown', handleClick)
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', handleClick)
+      document.removeEventListener('keydown', handleKeyDown)
     }
   }, [isOpen])
 

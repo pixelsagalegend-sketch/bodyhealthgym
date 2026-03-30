@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import toast from 'react-hot-toast'
+import { sendWhatsApp } from '../../utils/whatsapp'
 import {
   LogIn,
   LogOut,
@@ -87,14 +88,14 @@ export default function Asistencia() {
         setClients(activeClients)
         setTodayLog(attendanceRes.data || [])
 
-        // Historial del mes
         const monthStart = startOfMonth(today).toISOString()
         const monthEnd = endOfMonth(today).toISOString()
-        const { data: monthData } = await supabase
-          .from('attendance')
-          .select('*, clients(nombre, apellido)')
-          .gte('fecha', monthStart)
-          .lte('fecha', monthEnd)
+        const ninetyDaysAgo = format(subDays(today, 90), 'yyyy-MM-dd')
+
+        const [{ data: monthData }, { data: recentAttendance }] = await Promise.all([
+          supabase.from('attendance').select('*, clients(nombre, apellido)').gte('fecha', monthStart).lte('fecha', monthEnd),
+          supabase.from('attendance').select('client_id, fecha').gte('fecha', ninetyDaysAgo).order('fecha', { ascending: false }),
+        ])
 
         const grouped = {}
         ;(monthData || []).forEach((record) => {
@@ -103,7 +104,14 @@ export default function Asistencia() {
         })
         setMonthAttendance(grouped)
 
-        recalculateMetrics(activeClients, attendanceRes.data || [])
+        const lastAttendanceMap = {}
+        ;(recentAttendance || []).forEach((r) => {
+          if (!lastAttendanceMap[r.client_id]) {
+            lastAttendanceMap[r.client_id] = r.fecha
+          }
+        })
+
+        recalculateMetrics(activeClients, attendanceRes.data || [], lastAttendanceMap)
     } catch (err) {
       toast.error('Error al cargar datos')
       console.error(err)
@@ -112,7 +120,7 @@ export default function Asistencia() {
     }
   }
 
-  const recalculateMetrics = (activeClients, todayData) => {
+  const recalculateMetrics = (activeClients, todayData, lastAttendanceMap = {}) => {
     // Tendencia del mes actual (día 1 hasta hoy)
     const trend = calculateCurrentMonthTrend()
     setDailyTrend(trend)
@@ -122,7 +130,7 @@ export default function Asistencia() {
     setHourlyData(hourly)
 
     // Clientes inactivos
-    const inactive = calculateInactiveClients()
+    const inactive = calculateInactiveClients(activeClients, lastAttendanceMap)
     setInactiveClients(inactive)
   }
 
@@ -156,24 +164,21 @@ export default function Asistencia() {
     })
   }
 
-  const calculateInactiveClients = () => {
+  const calculateInactiveClients = (activeClients = [], lastAttendanceMap = {}) => {
     const warning = []
     const danger = []
 
-    clients.forEach((client) => {
-      const lastAttendance = Object.keys(monthAttendance)
-        .reverse()
-        .find((dateKey) => monthAttendance[dateKey].some((a) => a.client_id === client.id))
-
-      if (!lastAttendance) {
-        danger.push({ ...client, daysSince: 999 })
-      } else {
-        const daysSince = Math.floor((today - new Date(lastAttendance)) / (1000 * 60 * 60 * 24))
-        if (daysSince >= 15) {
-          danger.push({ ...client, daysSince })
-        } else if (daysSince >= 7) {
-          warning.push({ ...client, daysSince })
-        }
+    activeClients.forEach((client) => {
+      const lastDate = lastAttendanceMap[client.id]
+      if (!lastDate) {
+        danger.push({ ...client, daysSince: null })
+        return
+      }
+      const daysSince = Math.floor((today - parseISO(lastDate)) / (1000 * 60 * 60 * 24))
+      if (daysSince >= 15) {
+        danger.push({ ...client, daysSince })
+      } else if (daysSince >= 7) {
+        warning.push({ ...client, daysSince })
       }
     })
 
@@ -265,12 +270,6 @@ export default function Asistencia() {
     })
 
     return weeks
-  }
-
-  const sendWhatsApp = (phone, message) => {
-    if (!phone) return
-    const clean = phone.replace(/[\s+\-()]/g, '')
-    window.open(`https://wa.me/${clean}?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer')
   }
 
   const getAttendanceForDay = (day) => {
@@ -597,7 +596,9 @@ export default function Asistencia() {
                       <div className="text-white font-semibold text-sm">
                         {client.nombre} {client.apellido}
                       </div>
-                      <div className="text-yellow-400 text-xs mt-0.5">Última visita: hace {client.daysSince} días</div>
+                      <div className="text-yellow-400 text-xs mt-0.5">
+                        {client.daysSince !== null ? `Última visita: hace ${client.daysSince} días` : 'Sin visitas registradas'}
+                      </div>
                     </div>
                     <button
                       onClick={() =>
@@ -631,7 +632,9 @@ export default function Asistencia() {
                       <div className="text-white font-semibold text-sm">
                         {client.nombre} {client.apellido}
                       </div>
-                      <div className="text-red-400 text-xs mt-0.5">Última visita: hace {client.daysSince} días</div>
+                      <div className="text-red-400 text-xs mt-0.5">
+                        {client.daysSince !== null ? `Última visita: hace ${client.daysSince} días` : 'Sin visitas registradas'}
+                      </div>
                     </div>
                     <button
                       onClick={() =>

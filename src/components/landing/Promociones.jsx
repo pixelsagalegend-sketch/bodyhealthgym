@@ -15,7 +15,7 @@ export default function Promociones() {
           .from('promotions')
           .select('*')
           .eq('activa', true)
-          .gte('fecha_fin', new Date().toISOString().split('T')[0])
+          .gte('fecha_fin', format(new Date(), 'yyyy-MM-dd'))
           .order('created_at', { ascending: false })
         setPromos(data || [])
       } catch {

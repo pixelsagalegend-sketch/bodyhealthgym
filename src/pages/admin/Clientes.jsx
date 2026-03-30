@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { useForm, Controller } from 'react-hook-form'
 import toast from 'react-hot-toast'
 import { Plus, Search, UserCheck, UserX, X, CreditCard, ClipboardList, MessageCircle, ChevronDown, Calendar } from 'lucide-react'
+import { sendWhatsApp } from '../../utils/whatsapp'
+import { PRECIOS_BASE } from '../../constants/prices'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 
@@ -110,7 +112,6 @@ export default function Clientes() {
   const { user } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
   const [clients, setClients] = useState([])
-  const [filtered, setFiltered] = useState([])
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
@@ -125,7 +126,7 @@ export default function Clientes() {
 
   const { register, handleSubmit, reset, control, setError, formState: { errors } } = useForm({
     defaultValues: {
-      fechaInscripcion: new Date().toISOString().split('T')[0]
+      fechaInscripcion: format(new Date(), 'yyyy-MM-dd')
     }
   })
 
@@ -143,11 +144,11 @@ export default function Clientes() {
     return () => clearTimeout(timer)
   }, [searchParams, setSearchParams])
 
-  useEffect(() => {
+  const filtered = useMemo(() => {
     const q = search.toLowerCase()
-    setFiltered(clients.filter((c) =>
+    return clients.filter((c) =>
       `${c.nombre} ${c.apellido} ${c.email}`.toLowerCase().includes(q)
-    ))
+    )
   }, [search, clients])
 
   const fetchClients = async () => {
@@ -157,7 +158,7 @@ export default function Clientes() {
       .select('*')
       .order('fecha_inscripcion', { ascending: false })
     if (error) toast.error('Error al cargar clientes')
-    else { setClients(data || []); setFiltered(data || []) }
+    else setClients(data || [])
     setLoading(false)
   }
 
@@ -167,7 +168,7 @@ export default function Clientes() {
       // Ensure date is properly captured; use today's date if not provided
       const fechaInscripcion = formData.fechaInscripcion && formData.fechaInscripcion.trim()
         ? formData.fechaInscripcion
-        : new Date().toISOString().split('T')[0]
+        : format(new Date(), 'yyyy-MM-dd')
       const tipoPago = formData.tipoPago || 'inscripcion_mensual'
       const descuento = Number(formData.descuento) || 0
 
@@ -191,18 +192,18 @@ export default function Clientes() {
       let montoTotal = 0
 
       if (tipoPago === 'inscripcion_mensual') {
-        pagosACrear.push({ tipo: 'inscripcion', monto: 5,  nota: 'Inscripción $5.00' })
-        pagosACrear.push({ tipo: 'mensual',     monto: 25, nota: 'Mensual $25.00' })
-        montoTotal = 30
+        pagosACrear.push({ tipo: 'inscripcion', monto: PRECIOS_BASE.inscripcion, nota: `Inscripción $${PRECIOS_BASE.inscripcion.toFixed(2)}` })
+        pagosACrear.push({ tipo: 'mensual',     monto: PRECIOS_BASE.mensual,     nota: `Mensual $${PRECIOS_BASE.mensual.toFixed(2)}` })
+        montoTotal = PRECIOS_BASE.inscripcion + PRECIOS_BASE.mensual
       } else if (tipoPago === 'solo_mensual') {
-        pagosACrear.push({ tipo: 'mensual', monto: 25, nota: 'Mensual $25.00' })
-        montoTotal = 25
+        pagosACrear.push({ tipo: 'mensual', monto: PRECIOS_BASE.mensual, nota: `Mensual $${PRECIOS_BASE.mensual.toFixed(2)}` })
+        montoTotal = PRECIOS_BASE.mensual
       } else if (tipoPago === 'solo_diario') {
-        pagosACrear.push({ tipo: 'diario', monto: 3, nota: 'Diario $3.00' })
-        montoTotal = 3
+        pagosACrear.push({ tipo: 'diario', monto: PRECIOS_BASE.diario, nota: `Diario $${PRECIOS_BASE.diario.toFixed(2)}` })
+        montoTotal = PRECIOS_BASE.diario
       } else if (tipoPago === 'solo_inscripcion') {
-        pagosACrear.push({ tipo: 'inscripcion', monto: 5, nota: 'Inscripción $5.00' })
-        montoTotal = 5
+        pagosACrear.push({ tipo: 'inscripcion', monto: PRECIOS_BASE.inscripcion, nota: `Inscripción $${PRECIOS_BASE.inscripcion.toFixed(2)}` })
+        montoTotal = PRECIOS_BASE.inscripcion
       }
 
       // Aplicar descuento al pago más grande primero (mensual → inscripcion)
@@ -244,7 +245,7 @@ export default function Clientes() {
           client_id: client.id,
           tipo: 'mensual',
           fecha_inicio: fechaInscripcion,
-          fecha_vencimiento: vencimiento.toISOString().split('T')[0],
+          fecha_vencimiento: format(vencimiento, 'yyyy-MM-dd'),
           estado: 'activa',
         })
       }
@@ -312,8 +313,8 @@ export default function Clientes() {
         client_id: showPagos.id,
         tipo: 'pago_parcial',
         monto: Number(partialPaymentAmount),
-        fecha_pago: new Date().toISOString().split('T')[0],
-        mes_correspondiente: new Date().toISOString().substring(0, 7),
+        fecha_pago: format(new Date(), 'yyyy-MM-dd'),
+        mes_correspondiente: format(new Date(), 'yyyy-MM'),
         notas: `Pago parcial - $${Number(partialPaymentAmount).toFixed(2)}`
       })
 
@@ -326,23 +327,6 @@ export default function Clientes() {
       toast.error(err.message || 'Error al registrar pago parcial')
     }
     setLoadingPartialPayment(false)
-  }
-
-  const getMembershipStatus = (clientId) => {
-    return {
-      label: 'Verificar',
-      color: 'bg-gray-500/10 text-gray-400'
-    }
-  }
-
-  const sendWhatsApp = (phone, message) => {
-    if (!phone) {
-      alert('Este cliente no tiene teléfono registrado')
-      return
-    }
-    // Remove spaces, dashes, parentheses but keep the + sign and numbers
-    const clean = phone.replace(/[\s\-()]/g, '').replace(/[^\d+]/g, '')
-    window.open(`https://wa.me/${clean}?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer')
   }
 
   return (
@@ -397,7 +381,6 @@ export default function Clientes() {
                 </thead>
                 <tbody>
                   {filtered.map((client) => {
-                    const membershipStatus = getMembershipStatus(client.id)
                     return (
                     <tr
                       key={client.id}
@@ -419,8 +402,8 @@ export default function Clientes() {
                         </span>
                       </td>
                       <td className="px-4 sm:px-6 py-3 sm:py-4">
-                        <span className={`text-xs font-bold px-2 sm:px-3 py-1 rounded-full whitespace-nowrap ${membershipStatus.color}`}>
-                          {membershipStatus.label}
+                        <span className="text-xs font-bold px-2 sm:px-3 py-1 rounded-full whitespace-nowrap bg-gray-500/10 text-gray-400">
+                          Verificar
                         </span>
                       </td>
                       <td className="px-4 sm:px-6 py-3 sm:py-4">
@@ -466,7 +449,7 @@ export default function Clientes() {
                     </div>
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-gym-gray">Membresía</span>
-                      <span className={`font-bold px-2 py-0.5 rounded-full ${membershipStatus.color}`}>{membershipStatus.label}</span>
+                      <span className="font-bold px-2 py-0.5 rounded-full bg-gray-500/10 text-gray-400">Verificar</span>
                     </div>
                     <div className="flex items-center gap-2 pt-2 border-t border-white/5">
                       <button onClick={() => verPagos(client)} className="flex-1 p-2 text-xs text-gym-gray hover:text-white hover:bg-white/5 rounded btn-icon flex items-center justify-center gap-1" title="Ver pagos">

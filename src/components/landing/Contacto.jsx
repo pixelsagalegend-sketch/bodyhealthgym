@@ -11,20 +11,7 @@ const info = [
   { icon: Clock, label: 'Horario', value: 'Lun–Sáb: 5am–10pm | Dom: 7am–3pm' },
 ]
 
-const validateEmail = (email) => {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  return emailRegex.test(email)
-}
-
-const validateNombre = (nombre) => {
-  if (!nombre || nombre.trim().length < 3) return false
-  return true
-}
-
-const validateMensaje = (mensaje) => {
-  if (!mensaje || mensaje.trim().length < 10) return false
-  return true
-}
+const validateEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
 
 export default function Contacto() {
   const [sending, setSending] = useState(false)

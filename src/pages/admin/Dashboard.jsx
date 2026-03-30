@@ -2,13 +2,14 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { Users, DollarSign, AlertCircle, ClipboardList, AlertTriangle, MessageCircle } from 'lucide-react'
+import { sendWhatsApp } from '../../utils/whatsapp'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns'
 import { es } from 'date-fns/locale'
 
 export default function Dashboard() {
   const { user } = useAuth()
-  const [metrics, setMetrics] = useState({ activos: 0, ingresos: 0, pendientes: 0, porVencer: 0 })
+  const [metrics, setMetrics] = useState({ activos: 0, ingresos: 0, porVencer: 0 })
   const [chartData, setChartData] = useState([])
   const [loading, setLoading] = useState(true)
   const [asistenciasHoy, setAsistenciasHoy] = useState(0)
@@ -72,22 +73,27 @@ export default function Dashboard() {
           }
         })
 
-      setMetrics({ activos, ingresos, pendientes: porVencer, porVencer })
+      setMetrics({ activos, ingresos, porVencer })
       setAsistenciasHoy((attendanceRes.data || []).length)
       setExpiringMembers(expiring)
 
-      // Chart: last 6 months
-      const months = Array.from({ length: 6 }, (_, i) => {
-        const d = subMonths(now, 5 - i)
-        return { month: format(d, 'MMM', { locale: es }), start: startOfMonth(d).toISOString(), end: endOfMonth(d).toISOString() }
-      })
+      // Chart: last 6 months — single query then group client-side
+      const months = Array.from({ length: 6 }, (_, i) => subMonths(now, 5 - i))
+      const chartStart = startOfMonth(months[0]).toISOString()
+      const chartEnd = endOfMonth(months[months.length - 1]).toISOString()
+      const { data: chartPayments } = await supabase
+        .from('payments')
+        .select('monto, fecha_pago')
+        .gte('fecha_pago', chartStart)
+        .lte('fecha_pago', chartEnd)
 
-      const chartResults = await Promise.all(
-        months.map(async (m) => {
-          const { data } = await supabase.from('payments').select('monto').gte('fecha_pago', m.start).lte('fecha_pago', m.end)
-          return { mes: m.month.toUpperCase(), ingresos: (data || []).reduce((s, p) => s + Number(p.monto), 0) }
-        })
-      )
+      const chartResults = months.map((d) => {
+        const monthStr = format(d, 'yyyy-MM')
+        const ingresos = (chartPayments || [])
+          .filter((p) => p.fecha_pago.startsWith(monthStr))
+          .reduce((s, p) => s + Number(p.monto), 0)
+        return { mes: format(d, 'MMM', { locale: es }).toUpperCase(), ingresos }
+      })
       setChartData(chartResults)
     } catch (err) {
       console.error(err)
@@ -102,12 +108,6 @@ export default function Dashboard() {
     { label: 'Membresías por Vencer', value: metrics.porVencer, icon: AlertCircle, color: 'text-yellow-400' },
     { label: 'Asistencias Hoy', value: asistenciasHoy, icon: ClipboardList, color: 'text-purple-400' },
   ]
-
-  const sendWhatsApp = (phone, message) => {
-    if (!phone) return
-    const clean = phone.replace(/[\s+\-()]/g, '')
-    window.open(`https://wa.me/${clean}?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer')
-  }
 
   if (loading) {
     return (

@@ -6,9 +6,7 @@ import toast from 'react-hot-toast'
 import { Plus, X, Filter, AlertTriangle } from 'lucide-react'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
-
-
-const PRECIOS_BASE = { mensual: 25, diario: 3, inscripcion: 5 }
+import { PRECIOS_BASE } from '../../constants/prices'
 
 function calcularMonto(tipo, promo, precioBase) {
   let base = precioBase
@@ -62,7 +60,7 @@ export default function Pagos() {
     setMembresiaActiva(null)
     setConfirmandoPago(false)
     if (!clienteWatch) return
-    const hoy = new Date().toISOString().split('T')[0]
+    const hoy = format(new Date(), 'yyyy-MM-dd')
     supabase
       .from('memberships')
       .select('fecha_vencimiento')
@@ -78,15 +76,21 @@ export default function Pagos() {
 
   const fetchAll = async () => {
     setLoading(true)
-    const [pagosRes, clientesRes, promosRes] = await Promise.all([
-      supabase.from('payments').select('id, client_id, tipo, monto, fecha_pago, notas, clients(id, nombre, apellido, email, telefono), promotions(nombre)').order('fecha_pago', { ascending: false }),
-      supabase.from('clients').select('id, nombre, apellido').eq('estado', 'activo'),
-      supabase.from('promotions').select('*').eq('activa', true),
-    ])
-    setPagos(pagosRes.data || [])
-    setClientes(clientesRes.data || [])
-    setPromociones(promosRes.data || [])
-    setLoading(false)
+    try {
+      const [pagosRes, clientesRes, promosRes] = await Promise.all([
+        supabase.from('payments').select('id, client_id, tipo, monto, fecha_pago, notas, clients(id, nombre, apellido, email, telefono), promotions(nombre)').order('fecha_pago', { ascending: false }),
+        supabase.from('clients').select('id, nombre, apellido').eq('estado', 'activo'),
+        supabase.from('promotions').select('*').eq('activa', true),
+      ])
+      setPagos(pagosRes.data || [])
+      setClientes(clientesRes.data || [])
+      setPromociones(promosRes.data || [])
+    } catch (err) {
+      toast.error('Error al cargar datos')
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const onSubmit = async (formData) => {
@@ -101,14 +105,14 @@ export default function Pagos() {
       let base = PRECIOS_BASE[formData.tipo] ?? 3
       if (formData.tipo === 'diario') base = Number(formData.precio_diario) || 3
       const monto = calcularMonto(formData.tipo, promo, base)
-      const today = new Date().toISOString().split('T')[0]
+      const today = format(new Date(), 'yyyy-MM-dd')
 
       await supabase.from('payments').insert({
         client_id: formData.client_id,
         tipo: formData.tipo,
         monto,
         fecha_pago: today,
-        mes_correspondiente: today.substring(0, 7),
+        mes_correspondiente: format(new Date(), 'yyyy-MM'),
         promocion_id: formData.promocion_id || null,
         notas: formData.notas || null,
       })
@@ -120,7 +124,7 @@ export default function Pagos() {
           client_id: formData.client_id,
           tipo: 'mensual',
           fecha_inicio: today,
-          fecha_vencimiento: vencimiento.toISOString().split('T')[0],
+          fecha_vencimiento: format(vencimiento, 'yyyy-MM-dd'),
           estado: 'activa',
         }, { onConflict: 'client_id' })
       }

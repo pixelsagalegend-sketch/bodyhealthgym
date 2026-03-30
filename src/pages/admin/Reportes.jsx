@@ -33,7 +33,7 @@ export default function Reportes() {
 
   useEffect(() => {
     fetchData()
-  }, [activeTab])
+  }, [])
 
   const fetchData = async () => {
     setLoading(true)
