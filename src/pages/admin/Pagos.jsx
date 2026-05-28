@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
+import { Navigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
+import { logAction } from '../../utils/auditLog'
 import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
 import { Plus, X, Filter, AlertTriangle } from 'lucide-react'
@@ -19,7 +21,7 @@ function calcularMonto(tipo, promo, precioBase) {
 }
 
 export default function Pagos() {
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const [pagos, setPagos] = useState([])
   const [clientes, setClientes] = useState([])
   const [promociones, setPromociones] = useState([])
@@ -130,6 +132,18 @@ export default function Pagos() {
       }
 
       toast.success(`Pago registrado — $${monto.toFixed(2)}`)
+      const clienteNombre = clientes.find((c) => c.id === formData.client_id)
+      await logAction({
+        profileId: profile.id,
+        accion: 'registró_pago',
+        entidadTipo: 'pago',
+        entidadId: null,
+        detalles: {
+          cliente: clienteNombre ? `${clienteNombre.nombre} ${clienteNombre.apellido}` : formData.client_id,
+          tipo: formData.tipo,
+          monto,
+        },
+      })
       reset()
       setShowModal(false)
       setMembresiaActiva(null)
@@ -142,6 +156,10 @@ export default function Pagos() {
   }
 
   const filtrados = filtroTipo ? pagos.filter((p) => p.tipo === filtroTipo) : pagos
+
+  if (profile && profile.role !== 'admin') {
+    return <Navigate to="/admin/clientes" replace />
+  }
 
   return (
     <div className="space-y-4 sm:space-y-6">
