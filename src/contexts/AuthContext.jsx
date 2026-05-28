@@ -9,25 +9,29 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
 
   const fetchProfile = async (authUser) => {
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('user_id', authUser.id)
-      .single()
+    try {
+      const { data } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', authUser.id)
+        .single()
 
-    if (data) {
-      setProfile(data)
-      return
+      if (data) {
+        setProfile(data)
+        return
+      }
+
+      // Bootstrap: first login creates profile with default role
+      const nombre = authUser.email?.split('@')[0] ?? authUser.id
+      const { data: created } = await supabase
+        .from('profiles')
+        .insert({ user_id: authUser.id, nombre, email: authUser.email, role: 'recepcionista' })
+        .select()
+        .single()
+      setProfile(created ?? null)
+    } catch {
+      setProfile(null)
     }
-
-    // Bootstrap: first login creates profile with default role
-    const nombre = authUser.email?.split('@')[0] ?? authUser.id
-    const { data: created } = await supabase
-      .from('profiles')
-      .insert({ user_id: authUser.id, nombre, email: authUser.email, role: 'recepcionista' })
-      .select()
-      .single()
-    setProfile(created)
   }
 
   useEffect(() => {
@@ -36,7 +40,7 @@ export function AuthProvider({ children }) {
       setUser(authUser)
       if (authUser) await fetchProfile(authUser)
       setLoading(false)
-    })
+    }).catch(() => setLoading(false))
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       const authUser = session?.user ?? null
