@@ -10,6 +10,8 @@ import Pagos from './pages/admin/Pagos'
 import Promociones from './pages/admin/Promociones'
 import Asistencia from './pages/admin/Asistencia'
 import Reportes from './pages/admin/Reportes'
+import Usuarios from './pages/admin/Usuarios'
+import Actividad from './pages/admin/Actividad'
 import AdminLayout from './components/admin/AdminLayout'
 
 export default function App() {
@@ -39,10 +41,28 @@ export default function App() {
         >
           <Route index element={<Dashboard />} />
           <Route path="clientes" element={<Clientes />} />
-          <Route path="pagos" element={<Pagos />} />
+          <Route path="pagos" element={
+            <PrivateRoute requiredRoles={['admin']}>
+              <Pagos />
+            </PrivateRoute>
+          } />
           <Route path="promociones" element={<Promociones />} />
           <Route path="asistencia" element={<Asistencia />} />
-          <Route path="reportes" element={<Reportes />} />
+          <Route path="reportes" element={
+            <PrivateRoute requiredRoles={['admin']}>
+              <Reportes />
+            </PrivateRoute>
+          } />
+          <Route path="usuarios" element={
+            <PrivateRoute requiredRoles={['admin']}>
+              <Usuarios />
+            </PrivateRoute>
+          } />
+          <Route path="actividad" element={
+            <PrivateRoute requiredRoles={['admin']}>
+              <Actividad />
+            </PrivateRoute>
+          } />
         </Route>
       </Routes>
     </AuthProvider>
