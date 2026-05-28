@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Navigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { Users, DollarSign, AlertCircle, ClipboardList, AlertTriangle, MessageCircle } from 'lucide-react'
@@ -8,7 +9,7 @@ import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns'
 import { es } from 'date-fns/locale'
 
 export default function Dashboard() {
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const [metrics, setMetrics] = useState({ activos: 0, ingresos: 0, porVencer: 0 })
   const [chartData, setChartData] = useState([])
   const [loading, setLoading] = useState(true)
@@ -115,6 +116,10 @@ export default function Dashboard() {
         <div className="w-8 h-8 border-4 border-gym-red border-t-transparent rounded-full animate-spin" />
       </div>
     )
+  }
+
+  if (profile && profile.role !== 'admin') {
+    return <Navigate to="/admin/clientes" replace />
   }
 
   return (
