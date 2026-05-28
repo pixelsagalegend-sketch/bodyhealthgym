@@ -1,7 +1,8 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Users, CreditCard, Tag, Dumbbell, ClipboardList, BarChart2 } from 'lucide-react'
+import { LayoutDashboard, Users, CreditCard, Tag, Dumbbell, ClipboardList, BarChart2, Shield, Activity } from 'lucide-react'
+import { useAuth } from '../../contexts/AuthContext'
 
-const navItems = [
+const baseNavItems = [
   { to: '/admin', icon: LayoutDashboard, label: 'Dashboard', end: true },
   { to: '/admin/clientes', icon: Users, label: 'Clientes' },
   { to: '/admin/pagos', icon: CreditCard, label: 'Pagos' },
@@ -10,10 +11,17 @@ const navItems = [
   { to: '/admin/reportes', icon: BarChart2, label: 'Reportes' },
 ]
 
+const adminNavItems = [
+  { to: '/admin/usuarios', icon: Shield, label: 'Usuarios' },
+  { to: '/admin/actividad', icon: Activity, label: 'Actividad' },
+]
+
 export default function Sidebar({ onClose }) {
+  const { isAdmin } = useAuth()
+  const navItems = isAdmin ? [...baseNavItems, ...adminNavItems] : baseNavItems
+
   return (
     <aside className="w-64 bg-gym-dark border-r border-white/5 flex flex-col h-full overflow-y-auto">
-      {/* Logo */}
       <div className="p-4 sm:p-6 border-b border-white/5 flex-shrink-0">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 bg-gym-red rounded-full flex items-center justify-center flex-shrink-0">
@@ -26,7 +34,6 @@ export default function Sidebar({ onClose }) {
         </div>
       </div>
 
-      {/* Nav */}
       <nav className="flex-1 p-3 sm:p-4 space-y-1">
         {navItems.map((item) => (
           <NavLink
