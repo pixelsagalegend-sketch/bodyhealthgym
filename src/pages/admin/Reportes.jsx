@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from 'react'
+import { Navigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import toast from 'react-hot-toast'
@@ -25,7 +26,7 @@ const calculateSmartYScale = (maxValue) => {
 }
 
 export default function Reportes() {
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const [activeTab, setActiveTab] = useState('diario')
   const [payments, setPayments] = useState([])
   const [clients, setClients] = useState([])
@@ -339,6 +340,10 @@ export default function Reportes() {
   }
 
   const hasChartData = reportData.chartData.some((d) => d.ingresos > 0)
+
+  if (profile && profile.role !== 'admin') {
+    return <Navigate to="/admin/clientes" replace />
+  }
 
   return (
     <div className="space-y-4 sm:space-y-6">
