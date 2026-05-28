@@ -5,16 +5,47 @@ const AuthContext = createContext({})
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
+  const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
 
+  const fetchProfile = async (authUser) => {
+    const { data } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('user_id', authUser.id)
+      .single()
+
+    if (data) {
+      setProfile(data)
+      return
+    }
+
+    // Bootstrap: first login creates profile with default role
+    const nombre = authUser.email?.split('@')[0] ?? authUser.id
+    const { data: created } = await supabase
+      .from('profiles')
+      .insert({ user_id: authUser.id, nombre, email: authUser.email, role: 'recepcionista' })
+      .select()
+      .single()
+    setProfile(created)
+  }
+
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null)
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      const authUser = session?.user ?? null
+      setUser(authUser)
+      if (authUser) await fetchProfile(authUser)
       setLoading(false)
     })
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      const authUser = session?.user ?? null
+      setUser(authUser)
+      if (authUser) {
+        await fetchProfile(authUser)
+      } else {
+        setProfile(null)
+      }
     })
 
     return () => subscription.unsubscribe()
@@ -26,12 +57,13 @@ export function AuthProvider({ children }) {
   }
 
   const signOut = async () => {
+    setProfile(null)
     const { error } = await supabase.auth.signOut()
     return { error }
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, profile, loading, isAdmin: profile?.role === 'admin', signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   )
