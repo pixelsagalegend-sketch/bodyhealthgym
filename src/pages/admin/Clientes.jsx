@@ -4,7 +4,8 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { useForm, Controller } from 'react-hook-form'
 import toast from 'react-hot-toast'
-import { Plus, Search, UserCheck, UserX, X, CreditCard, ClipboardList, MessageCircle, ChevronDown, Calendar } from 'lucide-react'
+import { Plus, Search, UserCheck, UserX, X, CreditCard, ClipboardList, MessageCircle, ChevronDown, Calendar, Trash2 } from 'lucide-react'
+import { logAction } from '../../utils/auditLog'
 import { sendWhatsApp } from '../../utils/whatsapp'
 import { PRECIOS_BASE } from '../../constants/prices'
 import { format } from 'date-fns'
@@ -92,6 +93,26 @@ function PhoneInputWithCode({ field }) {
 }
 
 
+function getMembershipStatus(membership) {
+  if (!membership) return { label: 'Sin membresía', sublabel: null, color: 'bg-gray-500/10 text-gray-400' }
+  const today = new Date()
+  const [y, mo, d] = membership.fecha_vencimiento.split('-').map(Number)
+  const vencimiento = new Date(y, mo - 1, d)
+  const diffDays = Math.ceil((vencimiento - today) / (1000 * 60 * 60 * 24))
+  if (diffDays < 0) {
+    return {
+      label: 'Vencida',
+      sublabel: `Venció: ${format(vencimiento, 'dd MMM yy', { locale: es })}`,
+      color: 'bg-red-500/10 text-red-400',
+    }
+  }
+  return {
+    label: `✅ Activa · ${diffDays} días`,
+    sublabel: `Vence: ${format(vencimiento, 'dd MMM yy', { locale: es })}`,
+    color: 'bg-green-500/10 text-green-400',
+  }
+}
+
 // Traduce errores técnicos de la BD a mensajes legibles en español
 function getFriendlyError(err) {
   const msg = err?.message || ''
@@ -109,7 +130,7 @@ function getFriendlyError(err) {
 }
 
 export default function Clientes() {
-  const { user } = useAuth()
+  const { user, profile, isAdmin } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
   const [clients, setClients] = useState([])
   const [search, setSearch] = useState('')
@@ -153,12 +174,20 @@ export default function Clientes() {
 
   const fetchClients = async () => {
     setLoading(true)
-    const { data, error } = await supabase
-      .from('clients')
-      .select('*')
-      .order('fecha_inscripcion', { ascending: false })
-    if (error) toast.error('Error al cargar clientes')
-    else setClients(data || [])
+    const [clientsRes, membershipsRes] = await Promise.all([
+      supabase.from('clients').select('*').order('fecha_inscripcion', { ascending: false }),
+      supabase.from('memberships').select('client_id, fecha_vencimiento, estado').eq('estado', 'activa'),
+    ])
+    if (clientsRes.error) {
+      toast.error('Error al cargar clientes')
+      setLoading(false)
+      return
+    }
+    const membershipByClient = {}
+    for (const m of (membershipsRes.data || [])) {
+      membershipByClient[m.client_id] = m
+    }
+    setClients((clientsRes.data || []).map(c => ({ ...c, membership: membershipByClient[c.id] || null })))
     setLoading(false)
   }
 
@@ -255,6 +284,13 @@ export default function Clientes() {
         : '✅ Cliente registrado sin pago inicial'
 
       toast.success(mensajeExito)
+      await logAction({
+        profileId: profile.id,
+        accion: 'creó_cliente',
+        entidadTipo: 'cliente',
+        entidadId: client.id,
+        detalles: { nombre: `${formData.nombre} ${formData.apellido}`, email: formData.email },
+      })
       reset()
       setShowModal(false)
       fetchClients()
@@ -276,8 +312,30 @@ export default function Clientes() {
     if (error) toast.error('Error al actualizar')
     else {
       toast.success(`Cliente ${nuevoEstado === 'activo' ? 'activado' : 'desactivado'}`)
+      await logAction({
+        profileId: profile.id,
+        accion: nuevoEstado === 'activo' ? 'activó_cliente' : 'desactivó_cliente',
+        entidadTipo: 'cliente',
+        entidadId: client.id,
+        detalles: { nombre: `${client.nombre} ${client.apellido}` },
+      })
       fetchClients()
     }
+  }
+
+  const deleteClient = async (client) => {
+    if (!window.confirm(`¿Eliminar a ${client.nombre} ${client.apellido}? Esta acción no se puede deshacer.`)) return
+    const { error } = await supabase.from('clients').delete().eq('id', client.id)
+    if (error) { toast.error('Error al eliminar cliente'); return }
+    await logAction({
+      profileId: profile.id,
+      accion: 'eliminó_cliente',
+      entidadTipo: 'cliente',
+      entidadId: client.id,
+      detalles: { nombre: `${client.nombre} ${client.apellido}`, email: client.email },
+    })
+    toast.success('Cliente eliminado')
+    fetchClients()
   }
 
   const verPagos = async (client) => {
@@ -321,6 +379,16 @@ export default function Clientes() {
       if (error) throw error
 
       toast.success(`Pago parcial de $${Number(partialPaymentAmount).toFixed(2)} registrado`)
+      await logAction({
+        profileId: profile.id,
+        accion: 'registró_pago_parcial',
+        entidadTipo: 'pago',
+        entidadId: null,
+        detalles: {
+          cliente: `${showPagos.nombre} ${showPagos.apellido}`,
+          monto: Number(partialPaymentAmount),
+        },
+      })
       setPartialPaymentAmount('')
       verPagos(showPagos)
     } catch (err) {
@@ -402,9 +470,17 @@ export default function Clientes() {
                         </span>
                       </td>
                       <td className="px-4 sm:px-6 py-3 sm:py-4">
-                        <span className="text-xs font-bold px-2 sm:px-3 py-1 rounded-full whitespace-nowrap bg-gray-500/10 text-gray-400">
-                          Verificar
-                        </span>
+                        {(() => {
+                          const ms = getMembershipStatus(client.membership)
+                          return (
+                            <div>
+                              <span className={`text-xs font-bold px-2 sm:px-3 py-1 rounded-full whitespace-nowrap ${ms.color}`}>
+                                {ms.label}
+                              </span>
+                              {ms.sublabel && <div className="text-xs text-gym-gray mt-1">{ms.sublabel}</div>}
+                            </div>
+                          )
+                        })()}
                       </td>
                       <td className="px-4 sm:px-6 py-3 sm:py-4">
                         <div className="flex items-center gap-1 sm:gap-2">
@@ -414,6 +490,15 @@ export default function Clientes() {
                           <button onClick={() => toggleEstado(client)} className="p-1.5 text-gym-gray hover:text-white btn-icon" title="Cambiar estado">
                             {client.estado === 'activo' ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
                           </button>
+                          {isAdmin && (
+                            <button
+                              onClick={() => deleteClient(client)}
+                              className="p-1.5 text-gym-gray hover:text-red-400 btn-icon"
+                              title="Eliminar cliente"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -431,7 +516,7 @@ export default function Clientes() {
             {/* Mobile Cards */}
             <div className="sm:hidden space-y-2 p-3">
               {filtered.map((client) => {
-                const membershipStatus = getMembershipStatus(client.id)
+                const ms = getMembershipStatus(client.membership)
                 return (
                   <div key={client.id} id={`row-${client.id}`} className={`bg-gym-black rounded-lg p-3 space-y-2 ${client.id === highlightId ? 'border-2 border-gym-red' : 'border border-white/5'}`}>
                     <div className="flex items-start justify-between gap-2">
@@ -449,7 +534,10 @@ export default function Clientes() {
                     </div>
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-gym-gray">Membresía</span>
-                      <span className="font-bold px-2 py-0.5 rounded-full bg-gray-500/10 text-gray-400">Verificar</span>
+                      <div className="text-right">
+                        <span className={`font-bold px-2 py-0.5 rounded-full ${ms.color}`}>{ms.label}</span>
+                        {ms.sublabel && <div className="text-gym-gray mt-0.5">{ms.sublabel}</div>}
+                      </div>
                     </div>
                     <div className="flex items-center gap-2 pt-2 border-t border-white/5">
                       <button onClick={() => verPagos(client)} className="flex-1 p-2 text-xs text-gym-gray hover:text-white hover:bg-white/5 rounded btn-icon flex items-center justify-center gap-1" title="Ver pagos">
@@ -460,6 +548,16 @@ export default function Clientes() {
                         {client.estado === 'activo' ? <UserX className="w-3.5 h-3.5" /> : <UserCheck className="w-3.5 h-3.5" />}
                         <span>{client.estado === 'activo' ? 'Desactivar' : 'Activar'}</span>
                       </button>
+                      {isAdmin && (
+                        <button
+                          onClick={() => deleteClient(client)}
+                          className="flex-1 p-2 text-xs text-gym-gray hover:text-red-400 hover:bg-red-500/5 rounded btn-icon flex items-center justify-center gap-1"
+                          title="Eliminar cliente"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Eliminar</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 )
